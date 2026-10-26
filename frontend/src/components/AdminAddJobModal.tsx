@@ -402,16 +402,16 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       <div className="relative w-full max-w-4xl bg-[#F5F0E8] border-4 border-[#111111] shadow-[8px_8px_0px_#111111] my-8 max-h-[92vh] flex flex-col">
         
         {/* Modal Top Header */}
-        <div className="flex items-center justify-between p-5 bg-[#111111] text-white border-b-4 border-[#111111]">
-          <div className="flex items-center gap-3">
-            <span className="p-2 bg-[#D9FF43] text-[#111111] font-mono text-sm font-black border-2 border-white shadow-[2px_2px_0px_white]">
+        <div className="flex items-center justify-between p-3 sm:p-5 bg-[#111111] text-white border-b-4 border-[#111111] gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <span className="p-1.5 sm:p-2 bg-[#D9FF43] text-[#111111] font-mono text-xs sm:text-sm font-black border-2 border-white shadow-[2px_2px_0px_white] shrink-0">
               AI ASSIST
             </span>
-            <div>
-              <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-                {step === 'choose_source' ? 'Add Recruitment Notification' : 'Verify & Approve Recruitment Draft'}
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-black uppercase tracking-tight flex items-center gap-2 truncate">
+                {step === 'choose_source' ? 'Add Notification' : 'Verify & Approve Draft'}
               </h2>
-              <p className="text-xs text-gray-300 font-mono mt-0.5">
+              <p className="text-[11px] sm:text-xs text-gray-300 font-mono mt-0.5 hidden sm:block">
                 {step === 'choose_source'
                   ? 'Select URL, PDF, or Manual Entry to begin structured draft creation'
                   : 'Review all extracted data, verify conflicts, and approve for aspirant publishing'}
@@ -420,15 +420,15 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 bg-[#FF6B4A] hover:bg-[#ff5530] text-[#111111] border-2 border-white transition-transform hover:scale-105"
+            className="p-1 sm:p-1.5 bg-[#FF6B4A] hover:bg-[#ff5530] text-[#111111] border-2 border-white transition-transform hover:scale-105 shrink-0 cursor-pointer"
             title="Close"
           >
-            <X className="w-6 h-6 stroke-[3]" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6 stroke-[3]" />
           </button>
         </div>
 
         {/* Modal Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-6">
           
           {/* STEP 1: CHOOSE EXTRACTION SOURCE */}
           {step === 'choose_source' && (
@@ -1127,14 +1127,14 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
 
         {/* Modal Bottom Actions Footer */}
         {step === 'review' && (
-          <div className="p-4 bg-white border-t-4 border-[#111111] flex flex-wrap items-center justify-between gap-3">
+          <div className="p-3 sm:p-4 bg-white border-t-4 border-[#111111] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
             <div className="flex items-center gap-2">
               {draftJobId && (
                 <button
                   type="button"
                   onClick={handleReject}
                   disabled={savingAction !== null}
-                  className="px-4 py-2 bg-gray-200 hover:bg-[#FF6B4A] hover:text-white text-[#111111] font-black uppercase text-xs border-2 border-[#111111] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-200 hover:bg-[#FF6B4A] hover:text-white text-[#111111] font-black uppercase text-xs border-2 border-[#111111] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <XCircle className="w-4 h-4" />
                   Reject Draft
@@ -1142,12 +1142,12 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={handleSaveDraft}
                 disabled={savingAction !== null}
-                className="px-5 py-2.5 bg-white hover:bg-gray-100 text-[#111111] font-black uppercase text-xs border-2 border-[#111111] shadow-[2px_2px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 flex items-center gap-2"
+                className="w-full sm:w-auto px-4 sm:px-5 py-2.5 bg-white hover:bg-gray-100 text-[#111111] font-black uppercase text-xs border-2 border-[#111111] shadow-[2px_2px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {savingAction === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Draft (Keep Unlisted)
@@ -1157,7 +1157,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
                 type="button"
                 onClick={handleApproveAndPublish}
                 disabled={savingAction !== null}
-                className="px-6 py-2.5 bg-[#D9FF43] hover:bg-[#cbf532] text-[#111111] font-black uppercase text-xs border-2 border-[#111111] shadow-[3px_3px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 flex items-center gap-2"
+                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 bg-[#D9FF43] hover:bg-[#cbf532] text-[#111111] font-black uppercase text-xs border-2 border-[#111111] shadow-[3px_3px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {savingAction === 'approve' ? (
                   <>

@@ -150,19 +150,19 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Status Filter Tabs (Eligible is default) */}
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           <button
             onClick={() => setStatusFilter('eligible')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
               statusFilter === 'eligible'
                 ? 'bg-[#D9FF43] text-[#111111] brutal-shadow translate-x-[-1px] translate-y-[-1px]'
                 : 'bg-[#FFFFFF] text-[#555555] hover:text-[#111111] hover:bg-[#E8E2D8]'
             }`}
           >
-            <CheckCircle2 size={15} className="stroke-[2.5]" />
-            <span>Eligible</span>
+            <CheckCircle2 size={15} className="stroke-[2.5] shrink-0" />
+            <span className="truncate">Eligible</span>
             {summary && (
-              <span className="bg-[#111111] text-[#D9FF43] px-1.5 py-0.2 font-mono text-[10px]">
+              <span className="bg-[#111111] text-[#D9FF43] px-1.5 py-0.2 font-mono text-[10px] shrink-0">
                 {summary.eligible_count}
               </span>
             )}
@@ -170,16 +170,16 @@ export const DashboardPage: React.FC = () => {
 
           <button
             onClick={() => setStatusFilter('all')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
               statusFilter === 'all'
                 ? 'bg-[#111111] text-white brutal-shadow translate-x-[-1px] translate-y-[-1px]'
                 : 'bg-[#FFFFFF] text-[#555555] hover:text-[#111111] hover:bg-[#E8E2D8]'
             }`}
           >
-            <Layers size={15} />
-            <span>All Jobs</span>
+            <Layers size={15} className="shrink-0" />
+            <span className="truncate">All Jobs</span>
             {summary && (
-              <span className="bg-[#E8E2D8] text-[#111111] px-1.5 py-0.2 font-mono text-[10px]">
+              <span className="bg-[#E8E2D8] text-[#111111] px-1.5 py-0.2 font-mono text-[10px] shrink-0">
                 {summary.total_jobs}
               </span>
             )}
@@ -187,16 +187,16 @@ export const DashboardPage: React.FC = () => {
 
           <button
             onClick={() => setStatusFilter('review_required')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
               statusFilter === 'review_required'
                 ? 'bg-[#FFFFFF] text-[#111111] brutal-shadow translate-x-[-1px] translate-y-[-1px] ring-2 ring-[#111111]'
                 : 'bg-[#FFFFFF] text-[#555555] hover:text-[#111111] hover:bg-[#E8E2D8]'
             }`}
           >
-            <AlertTriangle size={15} className="text-[#E08700] stroke-[2.5]" />
-            <span>Review Required</span>
+            <AlertTriangle size={15} className="text-[#E08700] stroke-[2.5] shrink-0" />
+            <span className="truncate">Review</span>
             {summary && (
-              <span className="bg-[#E8E2D8] text-[#111111] px-1.5 py-0.2 font-mono text-[10px]">
+              <span className="bg-[#E8E2D8] text-[#111111] px-1.5 py-0.2 font-mono text-[10px] shrink-0">
                 {summary.review_required_count}
               </span>
             )}
@@ -204,16 +204,16 @@ export const DashboardPage: React.FC = () => {
 
           <button
             onClick={() => setStatusFilter('not_eligible')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider border-2 border-[#111111] transition-transform ${
               statusFilter === 'not_eligible'
                 ? 'bg-[#FF6B4A] text-white brutal-shadow translate-x-[-1px] translate-y-[-1px]'
                 : 'bg-[#FFFFFF] text-[#555555] hover:text-[#111111] hover:bg-[#E8E2D8]'
             }`}
           >
-            <XCircle size={15} className="stroke-[2.5]" />
-            <span>Not Eligible</span>
+            <XCircle size={15} className="stroke-[2.5] shrink-0" />
+            <span className="truncate">Not Eligible</span>
             {summary && (
-              <span className="bg-[#111111] text-white px-1.5 py-0.2 font-mono text-[10px]">
+              <span className="bg-[#111111] text-white px-1.5 py-0.2 font-mono text-[10px] shrink-0">
                 {summary.not_eligible_count}
               </span>
             )}

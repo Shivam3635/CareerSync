@@ -21,11 +21,11 @@ export const Footer: React.FC = () => {
             Disclaimer & Authoritative Notice:
           </p>
           <p className="max-w-md text-[11px] leading-relaxed">
-            CareerSync acts as an informational filter. Always review the official recruitment notification from the issuing authority before submitting applications.
+            CareerSync acts as an informational tracker and discovery tool. Always review the official recruitment notification from the issuing authority before submitting applications.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-[#111111]">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-bold text-[#111111]">
           <span>About</span>
           <span>•</span>
           <span>Privacy Policy</span>

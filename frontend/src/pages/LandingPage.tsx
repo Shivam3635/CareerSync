@@ -24,7 +24,7 @@ export const LandingPage: React.FC = () => {
               <span>Personalized Government Exam Tracker</span>
             </div>
 
-            <h1 className="font-heading font-black text-4xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight text-[#111111]">
+            <h1 className="font-heading font-black text-3xl sm:text-5xl lg:text-7xl leading-[1.05] tracking-tight text-[#111111]">
               Government Jobs.
               <br />
               <span className="bg-[#111111] text-[#D9FF43] px-2 box-decoration-clone">
@@ -32,14 +32,14 @@ export const LandingPage: React.FC = () => {
               </span>
             </h1>
 
-            <p className="text-base sm:text-lg text-[#333333] font-medium max-w-xl leading-relaxed">
+            <p className="text-sm sm:text-lg text-[#333333] font-medium max-w-xl leading-relaxed">
               Stop checking every notification. Discover government exams that match your age, qualification, and eligibility.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
               <Link
                 to={destinationUrl}
-                className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#D9FF43] text-[#111111] font-heading font-black text-sm uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:translate-x-[-2px] hover:translate-y-[-2px] hover:bg-[#c9f22e] active:translate-x-[2px] active:translate-y-[2px] transition-transform"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#D9FF43] text-[#111111] font-heading font-black text-sm uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:translate-x-[-2px] hover:translate-y-[-2px] hover:bg-[#c9f22e] active:translate-x-[2px] active:translate-y-[2px] transition-transform text-center"
               >
                 <span>{ctaText}</span>
                 <ArrowRight size={18} />
@@ -47,19 +47,19 @@ export const LandingPage: React.FC = () => {
 
               <a
                 href="#how-it-works"
-                className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#FFFFFF] text-[#111111] font-heading font-black text-sm uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:bg-[#E8E2D8] transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FFFFFF] text-[#111111] font-heading font-black text-sm uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:bg-[#E8E2D8] transition-colors text-center"
               >
                 <span>How It Works</span>
               </a>
             </div>
 
-            <div className="pt-4 flex flex-wrap items-center gap-6 text-xs font-bold text-[#555555]">
+            <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-xs font-bold text-[#555555]">
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 size={16} className="text-[#111111]" />
+                <CheckCircle2 size={16} className="text-[#111111] shrink-0" />
                 Zero Spam / No Coaching Sell
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 size={16} className="text-[#111111]" />
+                <CheckCircle2 size={16} className="text-[#111111] shrink-0" />
                 Deterministic Age & Category Math
               </span>
             </div>
@@ -67,7 +67,7 @@ export const LandingPage: React.FC = () => {
 
           {/* Hero Right: Neo-Brutalist Interactive Preview Card */}
           <div className="lg:col-span-5">
-            <div className="bg-[#FFFFFF] border-3 border-[#111111] brutal-shadow-lg p-6 relative space-y-4">
+            <div className="bg-[#FFFFFF] border-3 border-[#111111] brutal-shadow-lg p-4 sm:p-6 relative space-y-4">
               <div className="absolute -top-3.5 right-4 bg-[#FF6B4A] text-white border-2 border-[#111111] px-3 py-0.5 text-xs font-black uppercase tracking-wider">
                 Live Sample Match
               </div>

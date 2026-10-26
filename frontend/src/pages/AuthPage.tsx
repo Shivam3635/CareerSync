@@ -109,9 +109,9 @@ export const AuthPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#F5F0E8] text-[#111111]">
       <Navbar />
 
-      <main className="flex-1 max-w-xl w-full mx-auto px-4 py-10 sm:py-16">
+      <main className="flex-1 max-w-xl w-full mx-auto px-3 sm:px-4 py-6 sm:py-12">
         {/* Candidate Quick Demo Box */}
-        <div className="bg-[#FFFFFF] border-2 border-[#111111] brutal-shadow p-4 mb-6">
+        <div className="bg-[#FFFFFF] border-2 border-[#111111] brutal-shadow p-3.5 sm:p-4 mb-5">
           <div className="flex items-center justify-between mb-2">
             <span className="font-mono text-[11px] font-black uppercase tracking-wider text-[#111111] flex items-center gap-1.5">
               <Sparkles size={14} className="text-[#FF6B4A]" />
@@ -138,7 +138,7 @@ export const AuthPage: React.FC = () => {
         </div>
 
         {/* Auth Box */}
-        <div className="bg-[#FFFFFF] border-3 border-[#111111] brutal-shadow-lg p-6 sm:p-8">
+        <div className="bg-[#FFFFFF] border-3 border-[#111111] brutal-shadow-lg p-4 sm:p-8">
           {/* Segmented Control */}
           <div className="grid grid-cols-2 border-2 border-[#111111] p-1 bg-[#F5F0E8] mb-6">
             <button

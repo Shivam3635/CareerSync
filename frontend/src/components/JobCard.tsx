@@ -65,7 +65,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
                 <span className="text-[#888888]">|</span>
                 <span className="inline-flex items-center gap-1 text-[11px] bg-[#F5F0E8] border border-[#111111] px-1.5 py-0.5 font-bold text-[#111111]" title={job.rule.additional_certification_requirement}>
                   <span>Req:</span>
-                  <span className="truncate max-w-[220px]">
+                  <span className="truncate max-w-[130px] sm:max-w-[220px]">
                     {job.rule.additional_certification_requirement}
                   </span>
                 </span>
@@ -89,13 +89,13 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
         </div>
 
         {/* Right Section: Eligibility Status & Action Buttons */}
-        <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3 pt-3 md:pt-0 border-t-2 md:border-t-0 border-[#E8E2D8]">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2.5 sm:gap-3 pt-3 md:pt-0 border-t-2 md:border-t-0 border-[#E8E2D8]">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <EligibilityBadge status={status} />
             
             <button
               onClick={() => onExplain(job)}
-              className="p-1 text-[#666666] hover:text-[#111111] hover:bg-[#E8E2D8] border border-transparent hover:border-[#111111] transition-all"
+              className="p-1.5 text-[#666666] hover:text-[#111111] hover:bg-[#E8E2D8] border border-transparent hover:border-[#111111] transition-all min-w-[28px] min-h-[28px] flex items-center justify-center cursor-pointer"
               title="Explain eligibility reasons"
               aria-label="Explain eligibility"
             >
@@ -107,7 +107,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
             href={job.original_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#cbf425] active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#cbf425] active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
           >
             <span>Show Details</span>
             <ExternalLink size={13} className="stroke-[2.5]" />

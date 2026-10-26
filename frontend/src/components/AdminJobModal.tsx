@@ -162,13 +162,13 @@ export const AdminJobModal: React.FC<AdminJobModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/70 backdrop-blur-xs">
-      <div className="w-full max-w-2xl bg-[#F5F0E8] border-3 border-[#111111] brutal-shadow-lg p-6 max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#111111]/70 backdrop-blur-xs">
+      <div className="w-full max-w-2xl bg-[#F5F0E8] border-3 border-[#111111] brutal-shadow-lg p-4 sm:p-6 max-h-[92vh] overflow-y-auto">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b-2 border-[#111111] pb-3 mb-4">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 bg-[#D9FF43] border border-[#111111] inline-block"></span>
-            <h3 className="font-heading font-black text-xl text-[#111111]">
+            <h3 className="font-heading font-black text-lg sm:text-xl text-[#111111]">
               {isEditing ? 'Edit Recruitment Opportunity' : 'Create Recruitment Opportunity'}
             </h3>
           </div>
@@ -523,11 +523,11 @@ export const AdminJobModal: React.FC<AdminJobModalProps> = ({
           </div>
 
           {/* Action buttons */}
-          <div className="pt-2 flex items-center justify-between">
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold uppercase bg-white border-2 border-[#111111] hover:bg-[#E8E2D8]"
+              className="text-center px-4 py-2.5 text-xs font-bold uppercase bg-white border-2 border-[#111111] hover:bg-[#E8E2D8] cursor-pointer"
             >
               Cancel
             </button>
@@ -535,7 +535,7 @@ export const AdminJobModal: React.FC<AdminJobModalProps> = ({
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#111111] text-[#D9FF43] font-black text-xs uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:bg-[#222222] active:translate-x-[1px] active:translate-y-[1px] transition-transform"
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-[#111111] text-[#D9FF43] font-black text-xs uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:bg-[#222222] active:translate-x-[1px] active:translate-y-[1px] transition-transform cursor-pointer"
             >
               <Save size={15} />
               <span>{saving ? 'Saving...' : isEditing ? 'Update Opportunity' : 'Publish Opportunity'}</span>

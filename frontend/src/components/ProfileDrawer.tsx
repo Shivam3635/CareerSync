@@ -89,11 +89,11 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/70 backdrop-blur-xs">
-      <div className="w-full max-w-lg bg-[#F5F0E8] border-3 border-[#111111] brutal-shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#111111]/70 backdrop-blur-xs">
+      <div className="w-full max-w-lg bg-[#F5F0E8] border-3 border-[#111111] brutal-shadow-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b-2 border-[#111111] pb-3 mb-4">
           <div>
-            <h3 className="font-heading font-black text-xl text-[#111111]">
+            <h3 className="font-heading font-black text-lg sm:text-xl text-[#111111]">
               Eligibility Profile
             </h3>
             <p className="text-xs text-[#555555]">
@@ -238,18 +238,18 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
           </div>
 
           {/* Action buttons */}
-          <div className="pt-3 border-t-2 border-[#111111] flex items-center justify-between">
+          <div className="pt-3 border-t-2 border-[#111111] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold uppercase bg-white border-2 border-[#111111] hover:bg-[#E8E2D8]"
+              className="text-center px-4 py-2.5 text-xs font-bold uppercase bg-white border-2 border-[#111111] hover:bg-[#E8E2D8] cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px]"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
             >
               <Save size={14} />
               <span>{isSaving ? 'Saving...' : 'Save & Recalculate'}</span>
