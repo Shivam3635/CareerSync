@@ -15,7 +15,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'careersync-insecure-dev-key-7392847
 
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-raw_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+raw_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.onrender.com')
 ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(',') if h.strip()]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -132,6 +132,10 @@ else:
         'http://127.0.0.1:3000',
     ]
 
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
 if os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('true', '1'):
     CORS_ALLOW_ALL_ORIGINS = True
 
@@ -146,6 +150,8 @@ else:
         'http://127.0.0.1:5173',
         'http://localhost:3000',
         'http://127.0.0.1:3000',
+        'https://*.vercel.app',
+        'https://*.onrender.com',
     ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
