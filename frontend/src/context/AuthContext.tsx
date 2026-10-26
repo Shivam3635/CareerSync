@@ -19,8 +19,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(() => {
     try {
       const cached = localStorage.getItem('careersync_user');
-      return cached ? JSON.parse(cached) : null;
+      if (!cached) return null;
+      const parsed = JSON.parse(cached);
+      if (parsed && typeof parsed === 'object' && parsed.email) {
+        return parsed;
+      }
+      localStorage.removeItem('careersync_user');
+      return null;
     } catch {
+      localStorage.removeItem('careersync_user');
       return null;
     }
   });

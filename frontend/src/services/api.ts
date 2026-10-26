@@ -19,12 +19,19 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     credentials: 'include', // important for session cookies
   });
 
-  const contentType = response.headers.get('content-type');
+  const contentType = response.headers.get('content-type') || '';
   let data: any = null;
-  if (contentType && contentType.includes('application/json')) {
+
+  if (contentType.includes('application/json')) {
     data = await response.json();
   } else {
-    data = await response.text();
+    const rawText = await response.text();
+    if (rawText.trim().startsWith('<!doctype') || rawText.trim().startsWith('<html')) {
+      throw new Error(
+        'Backend connection error: The API request was handled by the static frontend server instead of your Render backend. Please set VITE_API_URL in your Vercel project settings to your Render backend URL.'
+      );
+    }
+    data = rawText;
   }
 
   if (!response.ok) {
@@ -37,6 +44,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       } else {
         errorMsg = Object.values(data).flat().join(' ');
       }
+    } else if (typeof data === 'string' && data.length > 0) {
+      errorMsg = data.slice(0, 200);
     }
     throw new Error(errorMsg);
   }
@@ -47,11 +56,15 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 export const api = {
   // Auth
   async getCurrentUser(): Promise<User | null> {
-    const res = await request<any>('/auth/me/');
-    if (res && res.authenticated === false) {
+    try {
+      const res = await request<any>('/auth/me/');
+      if (!res || typeof res !== 'object' || res.authenticated === false || !res.email) {
+        return null;
+      }
+      return res as User;
+    } catch {
       return null;
     }
-    return res as User;
   },
 
   async login(email: string, password: string): Promise<User> {
