@@ -1,6 +1,10 @@
 import type { User, JobMatchesResponse, StudentProfile, Job } from '../types';
 
-const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+let envApiUrl = (import.meta as any).env?.VITE_API_URL;
+// Auto-correct missing unique suffix if misconfigured in deployment environment variables
+if (envApiUrl && envApiUrl.includes('careersync-api.onrender.com') && !envApiUrl.includes('careersync-api-unpo.onrender.com')) {
+  envApiUrl = envApiUrl.replace('careersync-api.onrender.com', 'careersync-api-unpo.onrender.com');
+}
 const isDev = Boolean((import.meta as any).env?.DEV);
 
 // Use explicit environment variable if set.
