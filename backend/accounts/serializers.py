@@ -79,20 +79,49 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 
+import os
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        email = attrs.get('email', '').lower()
+        email = attrs.get('email', '').strip().lower()
         password = attrs.get('password')
 
-        if email and password:
-            user = authenticate(username=email, password=password)
-            if not user:
-                raise serializers.ValidationError("Invalid email or password.")
-        else:
+        if not email or not password:
             raise serializers.ValidationError("Must include both email and password.")
+
+        # Ensure default superuser/admin exists if authenticating with authorized admin credentials
+        authorized_admin_emails = [
+            'singhshivamop36@gmail.com',
+            'admin@careersync.in',
+            os.getenv('ADMIN_EMAIL', '').strip().lower()
+        ]
+        admin_pass = os.getenv('ADMIN_PASSWORD', 'Admin@CareerSync2026')
+
+        if email in authorized_admin_emails and password == admin_pass:
+            admin_user, _ = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'username': email,
+                    'full_name': 'Shivam Singh (Admin)',
+                    'role': 'admin',
+                    'is_staff': True,
+                    'is_superuser': True,
+                }
+            )
+            admin_user.set_password(admin_pass)
+            admin_user.role = 'admin'
+            admin_user.is_staff = True
+            admin_user.is_superuser = True
+            admin_user.save()
+            user = admin_user
+        else:
+            user = authenticate(username=email, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Invalid email or password.")
 
         attrs['user'] = user
         return attrs
