@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import type { Category, Gender, QualificationLevel, QualificationStatus } from '../types';
-import { UserCheck, Shield, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import { UserCheck, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -92,16 +92,12 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const handleDemoAuth = async (accountType: 'student' | 'admin') => {
+  const handleDemoAuth = async () => {
     setLoading(true);
     setError('');
     try {
-      const loggedUser = await demoLogin(accountType);
-      if (loggedUser.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      await demoLogin('student');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Demo login failed. Make sure demo accounts are seeded.');
     } finally {
@@ -114,43 +110,31 @@ export const AuthPage: React.FC = () => {
       <Navbar />
 
       <main className="flex-1 max-w-xl w-full mx-auto px-4 py-10 sm:py-16">
-        {/* Development Demo Logins Box */}
+        {/* Candidate Quick Demo Box */}
         <div className="bg-[#FFFFFF] border-2 border-[#111111] brutal-shadow p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="font-mono text-[11px] font-black uppercase tracking-wider text-[#111111] flex items-center gap-1.5">
               <Sparkles size={14} className="text-[#FF6B4A]" />
-              Quick Demo Access
+              Candidate Quick Preview
             </span>
             <span className="text-[10px] font-bold bg-[#D9FF43] border border-[#111111] px-1.5 py-0.2">
-              Seeded Data
+              Student Demo
             </span>
           </div>
 
           <p className="text-xs text-[#555555] mb-3">
-            Authenticate instantly without typing credentials:
+            Want to test instant eligibility evaluation before creating an account?
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleDemoAuth('student')}
-              disabled={loading}
-              className="flex items-center justify-center gap-2 py-2 px-3 bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm font-bold text-xs uppercase tracking-wider hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] transition-transform"
-            >
-              <UserCheck size={16} />
-              <span>Student Demo</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDemoAuth('admin')}
-              disabled={loading}
-              className="flex items-center justify-center gap-2 py-2 px-3 bg-[#FFFFFF] text-[#111111] border-2 border-[#111111] brutal-shadow-sm font-bold text-xs uppercase tracking-wider hover:bg-[#E8E2D8] active:translate-x-[1px] active:translate-y-[1px] transition-transform"
-            >
-              <Shield size={16} />
-              <span>Admin Demo</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleDemoAuth}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm font-bold text-xs uppercase tracking-wider hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] transition-transform cursor-pointer"
+          >
+            <UserCheck size={16} />
+            <span>Explore as Candidate (1-Click Demo)</span>
+          </button>
         </div>
 
         {/* Auth Box */}

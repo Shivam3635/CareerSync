@@ -16,15 +16,27 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem('careersync_user');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
     try {
       const currentUser = await api.getCurrentUser();
       setUser(currentUser);
+      if (currentUser) {
+        localStorage.setItem('careersync_user', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('careersync_user');
+      }
     } catch {
-      setUser(null);
+      // Retain cached session if temporary network failure
     } finally {
       setLoading(false);
     }
@@ -37,24 +49,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     const loggedUser = await api.login(email, password);
     setUser(loggedUser);
+    localStorage.setItem('careersync_user', JSON.stringify(loggedUser));
     return loggedUser;
   };
 
-  const demoLogin = async (accountType: 'student' | 'admin') => {
+  const demoLogin = async (accountType: 'student' | 'admin' = 'student') => {
     const loggedUser = await api.demoLogin(accountType);
     setUser(loggedUser);
+    localStorage.setItem('careersync_user', JSON.stringify(loggedUser));
     return loggedUser;
   };
 
   const register = async (data: any) => {
     const newUser = await api.register(data);
     setUser(newUser);
+    localStorage.setItem('careersync_user', JSON.stringify(newUser));
     return newUser;
   };
 
   const logout = async () => {
-    await api.logout();
-    setUser(null);
+    try {
+      await api.logout();
+    } catch (e) {
+      console.warn('Logout request warning:', e);
+    } finally {
+      localStorage.removeItem('careersync_user');
+      setUser(null);
+    }
   };
 
   const updateProfile = async (data: Partial<StudentProfile>) => {

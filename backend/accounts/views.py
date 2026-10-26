@@ -47,7 +47,12 @@ class DemoLoginView(APIView):
 
     def post(self, request):
         account_type = request.data.get('account_type', 'student')
-        email = "admin@careersync.demo" if account_type == 'admin' else "student@careersync.demo"
+        if account_type == 'admin':
+            return Response(
+                {"error": "Admin demo login is disabled for security. Please sign in with administrator credentials."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        email = "student@careersync.demo"
 
         try:
             user = User.objects.get(email=email)

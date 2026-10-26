@@ -1,6 +1,9 @@
 import type { User, JobMatchesResponse, StudentProfile, Job } from '../types';
 
-const BASE_URL = '/api';
+const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+const BASE_URL = envApiUrl
+  ? (envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl.replace(/\/$/, '')}/api`)
+  : '/api';
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;

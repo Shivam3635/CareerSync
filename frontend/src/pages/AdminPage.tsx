@@ -173,6 +173,19 @@ export const AdminPage: React.FC = () => {
     fetchStats();
   };
 
+  if (authLoading || !user || user.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F0E8]">
+        <div className="p-6 bg-white border-2 border-[#111111] brutal-shadow flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-[#111111] border-t-transparent animate-spin" />
+          <span className="font-heading font-black text-xs uppercase tracking-wider text-[#111111]">
+            Verifying administrative session...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F0E8] text-[#111111]">
       <Navbar />

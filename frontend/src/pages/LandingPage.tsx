@@ -1,10 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { ArrowRight, CheckCircle2, Sparkles, ExternalLink } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
+  const { user } = useAuth();
+  const destinationUrl = user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/auth?mode=register';
+  const ctaText = user ? (user.role === 'admin' ? 'Open Admin Console' : 'Go to Dashboard') : 'Get Started';
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F0E8] text-[#111111]">
       <Navbar />
@@ -16,7 +21,7 @@ export const LandingPage: React.FC = () => {
           <div className="lg:col-span-7 space-y-6">
             <div className="inline-flex items-center gap-2 bg-[#D9FF43] border-2 border-[#111111] px-3 py-1 font-bold text-xs uppercase tracking-wider brutal-shadow-sm">
               <Sparkles size={14} />
-              <span>Personalized Government Exam Filter</span>
+              <span>Personalized Government Exam Tracker</span>
             </div>
 
             <h1 className="font-heading font-black text-4xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight text-[#111111]">
@@ -33,10 +38,10 @@ export const LandingPage: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <Link
-                to="/auth?mode=register"
+                to={destinationUrl}
                 className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#D9FF43] text-[#111111] font-heading font-black text-sm uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:translate-x-[-2px] hover:translate-y-[-2px] hover:bg-[#c9f22e] active:translate-x-[2px] active:translate-y-[2px] transition-transform"
               >
-                <span>Get Started</span>
+                <span>{ctaText}</span>
                 <ArrowRight size={18} />
               </Link>
 
@@ -179,10 +184,10 @@ export const LandingPage: React.FC = () => {
           </p>
           <div className="pt-2">
             <Link
-              to="/auth?mode=register"
+              to={destinationUrl}
               className="inline-flex items-center gap-2 px-8 py-4 bg-[#111111] text-[#D9FF43] font-heading font-black text-base uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:bg-[#222222] active:translate-x-[2px] active:translate-y-[2px] transition-transform"
             >
-              <span>Get Started</span>
+              <span>{ctaText}</span>
               <ArrowRight size={20} />
             </Link>
           </div>

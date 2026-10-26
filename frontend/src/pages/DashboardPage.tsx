@@ -92,6 +92,19 @@ export const DashboardPage: React.FC = () => {
   const summary = matchesData?.summary;
   const jobs = matchesData?.jobs || [];
 
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F0E8]">
+        <div className="p-6 bg-white border-2 border-[#111111] brutal-shadow flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-[#111111] border-t-transparent animate-spin" />
+          <span className="font-heading font-black text-xs uppercase tracking-wider text-[#111111]">
+            Loading candidate profile & matches...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F0E8] text-[#111111]">
       <Navbar onOpenProfile={() => setIsProfileOpen(true)} />
