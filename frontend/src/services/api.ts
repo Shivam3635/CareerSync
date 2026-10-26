@@ -1,9 +1,16 @@
 import type { User, JobMatchesResponse, StudentProfile, Job } from '../types';
 
 const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+const isDev = Boolean((import.meta as any).env?.DEV);
+
+// Use explicit environment variable if set.
+// Otherwise, in local dev use '/api' (proxied by Vite to 127.0.0.1:8000).
+// In production builds, default directly to the live Render backend URL so requests never fail due to missing env vars.
 const BASE_URL = envApiUrl
   ? (envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl.replace(/\/$/, '')}/api`)
-  : '/api';
+  : isDev
+  ? '/api'
+  : 'https://careersync-api-unpo.onrender.com/api';
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -13,11 +20,18 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers as Record<string, string> || {}),
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: 'include', // important for session cookies
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: 'include', // important for session cookies
+    });
+  } catch (err: any) {
+    throw new Error(
+      'Unable to connect to CareerSync server. If the server was idle, Render may be waking up (takes ~30-50s on free tier). Please retry in a few moments.'
+    );
+  }
 
   const contentType = response.headers.get('content-type') || '';
   let data: any = null;

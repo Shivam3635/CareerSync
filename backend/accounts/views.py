@@ -56,13 +56,40 @@ class DemoLoginView(APIView):
 
         try:
             user = User.objects.get(email=email)
-            login(request, user)
-            return Response(UserSerializer(user).data)
         except User.DoesNotExist:
-            return Response(
-                {"error": f"Demo account '{email}' not found. Please run seed_data first."},
-                status=status.HTTP_404_NOT_FOUND
+            from datetime import date
+            from students.models import StudentProfile, StudentQualification
+            user = User.objects.create(
+                email=email,
+                username=email,
+                full_name='Aarav Sharma',
+                role='student'
             )
+            user.set_password("password123")
+            user.save()
+
+            profile, _ = StudentProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'date_of_birth': date(1999, 6, 15),
+                    'gender': 'male',
+                    'category': 'OBC',
+                    'domicile_state': 'Uttar Pradesh',
+                }
+            )
+            StudentQualification.objects.get_or_create(
+                student=profile,
+                level='Graduate',
+                defaults={
+                    'degree': 'B.Tech in Computer Science',
+                    'status': 'completed',
+                    'passing_year': 2022,
+                    'percentage': 78.50,
+                }
+            )
+
+        login(request, user)
+        return Response(UserSerializer(user).data)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
