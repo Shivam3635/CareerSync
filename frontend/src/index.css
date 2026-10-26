@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-primary: #F5F0E8;
+    --text-primary: #111111;
+    --accent-lime: #D9FF43;
+    --accent-coral: #FF6B4A;
+    --bg-muted: #E8E2D8;
+    --white: #FFFFFF;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+/* Neo-Brutalist utility classes */
+.brutal-border {
+  border: 2px solid #111111;
+}
+
+.brutal-border-thick {
+  border: 3px solid #111111;
+}
+
+.brutal-shadow {
+  box-shadow: 4px 4px 0px #111111;
+}
+
+.brutal-shadow-sm {
+  box-shadow: 2px 2px 0px #111111;
+}
+
+.brutal-shadow-lg {
+  box-shadow: 6px 6px 0px #111111;
+}
+
+.brutal-btn {
+  border: 2px solid #111111;
+  box-shadow: 3px 3px 0px #111111;
+  font-weight: 700;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.brutal-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0px #111111;
+}
+
+.brutal-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #111111;
+}
+
+.brutal-card {
+  border: 2px solid #111111;
+  box-shadow: 4px 4px 0px #111111;
+  background-color: #FFFFFF;
+}
+
+/* Custom scrollbar for Neo-Brutalist look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #E8E2D8;
+  border-left: 1px solid #111111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #111111;
+}
