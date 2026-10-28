@@ -140,6 +140,14 @@ export const api = {
     return request<JobMatchesResponse>(`/jobs/matches/?${query.toString()}`);
   },
 
+  async getPublicJobs(params: { q?: string; category?: string; qualification?: string } = {}): Promise<Job[]> {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.category && params.category !== 'all') query.set('category', params.category);
+    if (params.qualification && params.qualification !== 'all') query.set('qualification', params.qualification);
+    return request<Job[]>(`/jobs/?${query.toString()}`);
+  },
+
   async getCategories(): Promise<{ category: string; count: number }[]> {
     return request<{ category: string; count: number }[]>('/jobs/categories/');
   },

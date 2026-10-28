@@ -80,8 +80,15 @@ class JobMatchesView(APIView):
         if qualification and qualification != 'all':
             queryset = queryset.filter(rule__min_qualification_level=qualification)
 
-        # Status filter (default is 'eligible' as required by product spec)
-        status_filter = request.query_params.get('status', 'eligible').lower()
+        # Status filter: default to 'eligible' for candidates with profiles; default to 'all' if profile is not set
+        has_profile = student_profile is not None
+        status_param = request.query_params.get('status')
+        if not status_param:
+            status_filter = 'eligible' if has_profile else 'all'
+        else:
+            status_filter = status_param.lower()
+            if not has_profile and status_filter == 'eligible':
+                status_filter = 'all'
 
         # Evaluate eligibility for each job
         matched_results = []

@@ -149,6 +149,27 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Profile Incomplete / Setup Banner */}
+        {matchesData && !matchesData.has_profile && (
+          <div className="bg-[#FFF4E5] border-2 border-[#111111] brutal-shadow p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <span className="font-mono text-[10px] font-black uppercase text-[#E08700] flex items-center gap-1.5">
+                <AlertTriangle size={13} />
+                Profile Setup Required for Custom Eligibility
+              </span>
+              <p className="text-xs font-semibold text-[#111111]">
+                Currently displaying all active government exam opportunities. Add your Date of Birth & Category to calculate exact personal eligibility!
+              </p>
+            </div>
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="px-3.5 py-1.5 bg-[#D9FF43] text-[#111111] border-2 border-[#111111] font-bold text-xs uppercase tracking-wider brutal-shadow-sm hover:translate-x-[-1px] hover:translate-y-[-1px] transition-transform shrink-0"
+            >
+              Complete Profile
+            </button>
+          </div>
+        )}
+
         {/* Status Filter Tabs (Eligible is default) */}
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           <button

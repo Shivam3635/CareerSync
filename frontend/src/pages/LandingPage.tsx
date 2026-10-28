@@ -1,12 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+import type { Job } from '../types';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { ArrowRight, CheckCircle2, Sparkles, ExternalLink } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, ExternalLink, Calendar, Users, GraduationCap, Building2 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
   const { user } = useAuth();
+  const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState<boolean>(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const data = await api.getPublicJobs();
+        setFeaturedJobs(data.slice(0, 6));
+      } catch (err) {
+        console.error('Failed to load featured jobs', err);
+      } finally {
+        setLoadingJobs(false);
+      }
+    };
+    fetchJobs();
+  }, []);
+
   const destinationUrl = user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/auth?mode=register';
   const ctaText = user ? (user.role === 'admin' ? 'Open Admin Console' : 'Go to Dashboard') : 'Get Started';
 
@@ -46,10 +65,10 @@ export const LandingPage: React.FC = () => {
               </Link>
 
               <a
-                href="#how-it-works"
+                href="#latest-jobs"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FFFFFF] text-[#111111] font-heading font-black text-sm uppercase tracking-wider border-2 border-[#111111] brutal-shadow hover:bg-[#E8E2D8] transition-colors text-center"
               >
-                <span>How It Works</span>
+                <span>Explore Latest Jobs ({featuredJobs.length > 0 ? `${featuredJobs.length}+` : 'Browse'})</span>
               </a>
             </div>
 
@@ -97,7 +116,7 @@ export const LandingPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-[#777777]">Last Date:</span>
-                  <span className="font-bold text-[#111111]">30 Nov 2026</span>
+                  <span className="font-bold text-[#111111]">05 Dec 2026</span>
                 </div>
               </div>
 
@@ -105,13 +124,135 @@ export const LandingPage: React.FC = () => {
                 <span className="text-xs font-bold text-[#666666]">
                   Redirects to official portal
                 </span>
-                <div className="inline-flex items-center gap-1 text-xs font-black bg-[#D9FF43] border-2 border-[#111111] px-3 py-1.5 brutal-shadow-sm">
-                  <span>Show Details</span>
+                <Link
+                  to="/auth"
+                  className="inline-flex items-center gap-1 text-xs font-black bg-[#D9FF43] border-2 border-[#111111] px-3 py-1.5 brutal-shadow-sm hover:bg-[#cbf425]"
+                >
+                  <span>Check Eligibility</span>
                   <ExternalLink size={12} />
-                </div>
+                </Link>
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Latest Government Jobs Section */}
+      <section id="latest-jobs" className="bg-[#FFFFFF] border-y-2 border-[#111111] py-16 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="space-y-1.5">
+              <span className="font-mono text-xs font-black uppercase tracking-wider text-[#FF6B4A]">
+                Official 2026 Recruitment Bulletins
+              </span>
+              <h2 className="font-heading font-black text-2xl sm:text-4xl text-[#111111]">
+                Latest Government Exam Opportunities
+              </h2>
+              <p className="text-xs sm:text-sm text-[#555555]">
+                Verified openings across Civil Services, Defense, Railways, Banking, Engineering & State PSCs.
+              </p>
+            </div>
+            <Link
+              to="/auth"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#D9FF43] text-[#111111] font-bold text-xs uppercase tracking-wider border-2 border-[#111111] brutal-shadow-sm hover:translate-x-[-1px] hover:translate-y-[-1px] transition-transform self-start sm:self-auto"
+            >
+              <span>View All on Dashboard</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          {loadingJobs ? (
+            <div className="p-12 text-center text-sm font-bold text-[#555555]">
+              Loading latest recruitment notices...
+            </div>
+          ) : featuredJobs.length === 0 ? (
+            <div className="p-12 text-center bg-[#F5F0E8] border-2 border-[#111111] brutal-shadow text-sm font-bold text-[#555555]">
+              No active recruitment listings found. Check back shortly!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredJobs.map((job) => {
+                const minQual = job.rule?.min_qualification_level || 'Graduate';
+                return (
+                  <div
+                    key={job.id}
+                    className="bg-[#F5F0E8] border-2 border-[#111111] brutal-shadow p-5 flex flex-col justify-between hover:translate-y-[-2px] transition-transform space-y-4"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[10px] uppercase font-bold bg-[#111111] text-[#D9FF43] px-2 py-0.5">
+                          {job.category}
+                        </span>
+                        {job.total_vacancies && (
+                          <span className="font-mono text-[11px] font-black bg-[#D9FF43] border border-[#111111] px-2 py-0.5 flex items-center gap-1">
+                            <Users size={12} />
+                            {job.total_vacancies.toLocaleString()} Posts
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="font-heading font-black text-base text-[#111111] leading-snug line-clamp-2">
+                          {job.title}
+                        </h3>
+                        <p className="text-xs text-[#555555] font-semibold flex items-center gap-1 mt-1">
+                          <Building2 size={13} className="shrink-0" />
+                          <span className="truncate">{job.organization}</span>
+                        </p>
+                      </div>
+
+                      <div className="bg-white border border-[#111111] p-2.5 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#666666] flex items-center gap-1">
+                            <GraduationCap size={13} />
+                            Min Qual:
+                          </span>
+                          <span className="font-mono font-bold text-[#111111]">{minQual}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#666666]">Age Limit:</span>
+                          <span className="font-mono font-bold text-[#111111]">
+                            {job.min_age} - {job.max_age} yrs
+                          </span>
+                        </div>
+                        {job.application_deadline && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[#666666] flex items-center gap-1">
+                              <Calendar size={13} />
+                              Last Date:
+                            </span>
+                            <span className="font-bold text-[#FF6B4A]">
+                              {job.application_deadline}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#D9D4CC] flex items-center justify-between gap-2">
+                      <Link
+                        to="/auth"
+                        className="flex-1 text-center py-2 px-3 bg-[#111111] text-[#D9FF43] font-bold text-xs uppercase tracking-wider hover:bg-[#222222] transition-colors"
+                      >
+                        Check Eligibility
+                      </Link>
+                      {job.original_url && (
+                        <a
+                          href={job.original_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Official Notification Link"
+                          className="p-2 bg-white border border-[#111111] hover:bg-[#E8E2D8] transition-colors"
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
