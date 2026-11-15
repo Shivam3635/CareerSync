@@ -497,7 +497,7 @@ class AdminAutoDiscoverView(APIView):
     permission_classes = [IsAdminRole]
 
     def post(self, request):
-        limit = int(request.data.get('limit', 3))
+        limit = int(request.data.get('limit', 5))
         limit = max(1, min(limit, 10))  # between 1 and 10 to prevent gateway timeouts
         custom_key = request.data.get('gemini_api_key', '').strip()
 

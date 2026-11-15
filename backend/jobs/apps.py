@@ -24,6 +24,6 @@ class JobsConfig(AppConfig):
         if is_server_process and not (running_tests or running_migrate):
             try:
                 from jobs.services.job_watcher import start_background_watcher_thread
-                start_background_watcher_thread(interval_seconds=1800)
+                start_background_watcher_thread(interval_seconds=300)
             except Exception:
                 pass

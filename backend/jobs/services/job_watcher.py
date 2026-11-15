@@ -96,13 +96,18 @@ def is_recruitment_link(title: str, url: str) -> bool:
 def is_notice_already_ingested(url: str, title: str = "") -> bool:
     """
     Checks if a recruitment URL (verification or original) or title has already been ingested.
+    Checks both stripped and trailing-slash normalized variants.
     """
-    clean_url = url.strip()
+    clean_url = url.strip().rstrip('/')
     if clean_url:
-        if Job.objects.filter(Q(original_url=clean_url) | Q(verification_url=clean_url)).exists():
+        slash_url = clean_url + '/'
+        if Job.objects.filter(
+            Q(original_url=clean_url) | Q(original_url=slash_url) |
+            Q(verification_url=clean_url) | Q(verification_url=slash_url)
+        ).exists():
             return True
 
-    if title and len(title.strip()) > 10:
+    if title and len(title.strip()) > 8:
         clean_title = title.strip()
         if Job.objects.filter(title__iexact=clean_title).exists():
             return True
@@ -384,7 +389,7 @@ def run_autonomous_discovery_and_ingestion(
     2. Ingests, parses, and stages pending_review drafts with verification URLs.
     3. Returns summary counts and ingested jobs.
     """
-    candidate_links = discover_candidate_recruitment_links(limit=limit * 2)
+    candidate_links = discover_candidate_recruitment_links(limit=limit * 3)
 
     ingested_jobs = []
     skipped_count = 0
@@ -424,10 +429,11 @@ _watcher_thread_instance: Optional[threading.Thread] = None
 _watcher_lock = threading.Lock()
 
 
-def start_background_watcher_thread(interval_seconds: int = 1800):
+def start_background_watcher_thread(interval_seconds: int = 300):
     """
     Spawns an autonomous background worker thread that monitors Sarkari Result periodically.
     Runs silently in the background of the live application so the Admin never has to manually click.
+    Defaults to 300 seconds (5 minutes) to stay active within hosting keep-alive limits.
     """
     global _watcher_thread_instance
 
@@ -437,12 +443,12 @@ def start_background_watcher_thread(interval_seconds: int = 1800):
 
         def _worker_loop():
             # Initial grace period on startup
-            time.sleep(12)
+            time.sleep(10)
             logger.info("Autonomous Background Job Watcher activated (interval: %ds).", interval_seconds)
             while True:
                 try:
                     logger.info("Autonomous Background Watcher: Checking Sarkari Result for new recruitments...")
-                    report = run_autonomous_discovery_and_ingestion(limit=3)
+                    report = run_autonomous_discovery_and_ingestion(limit=5)
                     if report.get('ingested_count', 0) > 0:
                         logger.info(
                             "Autonomous Watcher: Staged %d new draft(s) into Admin Review Queue!",

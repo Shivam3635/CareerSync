@@ -365,7 +365,7 @@ export const api = {
     return request('/admin/students/');
   },
 
-  async runAutoDiscover(limit: number = 3): Promise<{ report: any; message: string; ingested_count: number }> {
+  async runAutoDiscover(limit: number = 5): Promise<{ report: any; message: string; ingested_count: number }> {
     return request('/admin/jobs/auto-discover/', {
       method: 'POST',
       body: JSON.stringify({ limit }),
