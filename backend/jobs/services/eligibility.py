@@ -19,10 +19,13 @@ HIERARCHY = {
 }
 
 
-def calculate_age_at_cutoff(born: date, cutoff: date) -> int:
+def calculate_age_at_cutoff(born: date, cutoff: Optional[date] = None) -> int:
     """
     Accurately calculate age on cutoff date handling leap years and birthday calendar dates.
+    Falls back to today's date if cutoff is omitted or None.
     """
+    from django.utils import timezone
+    cutoff = cutoff or timezone.now().date()
     if born > cutoff:
         return 0
     return cutoff.year - born.year - ((cutoff.month, cutoff.day) < (born.month, born.day))
@@ -134,7 +137,7 @@ class EligibilityEvaluator:
 
         # 2. Check Date of Birth & Age
         dob = self.student.date_of_birth
-        cutoff_date = self.job.age_cutoff_date
+        cutoff_date = self.job.age_cutoff_date or self.job.application_deadline or timezone.now().date()
         calculated_age = None
         relaxation = 0
         effective_max_age = self.job.max_age

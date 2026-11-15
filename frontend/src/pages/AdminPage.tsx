@@ -49,7 +49,7 @@ export const AdminPage: React.FC = () => {
 
   // Jobs state
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending_review' | 'published' | 'draft' | 'rejected' | 'expired'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending_review' | 'published' | 'upcoming' | 'draft' | 'rejected' | 'expired'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingJobs, setLoadingJobs] = useState(true);
 
@@ -403,6 +403,12 @@ export const AdminPage: React.FC = () => {
                       : 'Pending Review' 
                   },
                   { id: 'published', label: 'Approved / Published' },
+                  { 
+                    id: 'upcoming', 
+                    label: (stats?.upcoming_jobs ?? 0) > 0 
+                      ? `⏳ Upcoming (${stats.upcoming_jobs})` 
+                      : 'Upcoming' 
+                  },
                   { id: 'draft', label: 'Drafts' },
                   { id: 'rejected', label: 'Rejected' },
                   { id: 'expired', label: 'Expired' }
@@ -467,6 +473,12 @@ export const AdminPage: React.FC = () => {
                           ) : (
                             <span className="font-bold text-[10px] uppercase bg-[#E8E2D8] text-[#555555] border border-[#111111] px-2 py-0.5">
                               Draft
+                            </span>
+                          )}
+
+                          {job.is_upcoming && (
+                            <span className="font-bold text-[10px] uppercase bg-cyan-100 text-cyan-900 border border-cyan-400 px-2 py-0.5">
+                              ⏳ Upcoming
                             </span>
                           )}
 

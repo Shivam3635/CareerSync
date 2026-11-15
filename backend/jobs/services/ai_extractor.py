@@ -59,6 +59,7 @@ JSON SCHEMA TO RETURN:
   "domicile_requirement": string (e.g. "All India" or specific State),
   "selection_process": string,
   "description": string,
+  "is_upcoming": boolean (set true if application opening date is in the future, or stated as 'Available Soon', 'Notify Soon', or application link is not yet active),
   "conflicts": [string],
   "warnings": [string],
   "confidence_score": float
@@ -324,6 +325,25 @@ def fallback_deterministic_extractor(
         elif deadline:
             cutoff_date = deadline
 
+    # Detect upcoming signals in text and tables
+    is_upcoming = False
+    text_lower = text.lower()
+    if any(sig in text_lower for sig in [
+        'available soon', 'notify soon', 'link activate soon', 'activate soon',
+        'will be available soon', 'link will be activated', 'to be notified soon',
+        'to be notified later', 'dates will be declared soon', 'commencing soon'
+    ]):
+        is_upcoming = True
+
+    today_date = datetime.now().date()
+    if start_date:
+        try:
+            sd = datetime.strptime(start_date, '%Y-%m-%d').date()
+            if sd > today_date:
+                is_upcoming = True
+        except ValueError:
+            pass
+
     # 7. Age Limits
     min_age = 18
     max_age = 32
@@ -437,9 +457,10 @@ def fallback_deterministic_extractor(
         "advertisement_number": advt_no,
         "recruitment_year": recruitment_year,
         "category": category,
-        "application_start_date": start_date or datetime.now().strftime('%Y-%m-%d'),
-        "application_deadline": deadline or datetime.now().strftime('%Y-%m-%d'),
-        "age_cutoff_date": cutoff_date or deadline or datetime.now().strftime('%Y-%m-%d'),
+        "application_start_date": start_date or (None if is_upcoming else datetime.now().strftime('%Y-%m-%d')),
+        "application_deadline": deadline or (None if is_upcoming else datetime.now().strftime('%Y-%m-%d')),
+        "age_cutoff_date": cutoff_date or deadline or (None if is_upcoming else datetime.now().strftime('%Y-%m-%d')),
+        "is_upcoming": is_upcoming,
         "min_age": min_age,
         "max_age": max_age,
         "total_vacancies": total_vacancies,
@@ -500,13 +521,40 @@ def extract_and_structure_job(
     app_deadline = normalize_date_string(raw_extracted.get('application_deadline'))
     age_cutoff = normalize_date_string(raw_extracted.get('age_cutoff_date'))
 
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    if not app_start:
-        app_start = today_str
-    if not app_deadline:
-        app_deadline = today_str
-    if not age_cutoff:
-        age_cutoff = app_deadline
+    today_date = datetime.now().date()
+    today_str = today_date.strftime('%Y-%m-%d')
+
+    # Detect upcoming indicators
+    is_upcoming = bool(raw_extracted.get('is_upcoming', False))
+
+    source_lower = source_text.lower()
+    if any(sig in source_lower for sig in [
+        'available soon', 'notify soon', 'link activate soon',
+        'activate soon', 'link will be activated', 'will be available soon',
+        'to be notified soon', 'to be notified later', 'form not started', 'commencing soon'
+    ]):
+        is_upcoming = True
+
+    if app_start:
+        try:
+            start_dt = datetime.strptime(app_start, '%Y-%m-%d').date()
+            if start_dt > today_date:
+                is_upcoming = True
+        except ValueError:
+            pass
+
+    # For upcoming posts: if dates are unconfirmed, keep them None instead of today!
+    if not is_upcoming:
+        if not app_start:
+            app_start = today_str
+        if not app_deadline:
+            app_deadline = today_str
+        if not age_cutoff:
+            age_cutoff = app_deadline
+    else:
+        # If upcoming and cutoff is missing, use deadline if available
+        if not age_cutoff and app_deadline:
+            age_cutoff = app_deadline
 
     # Normalize Numbers
     try:
@@ -582,6 +630,7 @@ def extract_and_structure_job(
             'description': raw_extracted.get('description') or "",
             'status': 'pending_review',
             'is_published': False,
+            'is_upcoming': is_upcoming,
         },
         'rule_fields': {
             'min_qualification_level': min_qualification_level,
@@ -607,5 +656,6 @@ def extract_and_structure_job(
             'confidence_score': confidence_score,
             'source_url': source_url,
             'uploaded_pdf_path': uploaded_pdf_path,
+            'is_upcoming': is_upcoming,
         }
     }

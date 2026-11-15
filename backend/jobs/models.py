@@ -59,6 +59,7 @@ class Job(models.Model):
     # Workflow status
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='approved')
     is_published = models.BooleanField(default=True)
+    is_upcoming = models.BooleanField(default=False, help_text="True if application opening date is in future or form link is not yet active")
     
     # AI Extraction and Review Metadata
     ai_extraction_metadata = models.JSONField(default=dict, blank=True, help_text="Metadata: warnings, conflicts, extracted links, confidence")
@@ -78,7 +79,36 @@ class Job(models.Model):
     def is_expired(self):
         if not self.application_deadline:
             return False
-        return timezone.now().date() > self.application_deadline
+        dl = self.application_deadline
+        if isinstance(dl, str):
+            try:
+                from datetime import datetime
+                dl = datetime.strptime(dl.strip(), '%Y-%m-%d').date()
+            except ValueError:
+                return False
+        return timezone.now().date() > dl
+
+    @property
+    def is_currently_upcoming(self):
+        """
+        Dynamically checks whether the recruitment is upcoming:
+        1. Never upcoming if already expired.
+        2. Upcoming if explicit is_upcoming flag is True (e.g. apply link not yet active).
+        3. Upcoming if application_start_date is in the future.
+        """
+        if self.is_expired:
+            return False
+        if self.application_start_date:
+            sd = self.application_start_date
+            if isinstance(sd, str):
+                try:
+                    from datetime import datetime
+                    sd = datetime.strptime(sd.strip(), '%Y-%m-%d').date()
+                except ValueError:
+                    sd = None
+            if sd and timezone.now().date() < sd:
+                return True
+        return self.is_upcoming
 
 
 def default_age_relaxations():

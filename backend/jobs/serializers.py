@@ -20,6 +20,7 @@ class JobEligibilityRuleSerializer(serializers.ModelSerializer):
 class JobSerializer(serializers.ModelSerializer):
     rule = JobEligibilityRuleSerializer(read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
+    is_upcoming = serializers.BooleanField(source='is_currently_upcoming', read_only=True)
 
     class Meta:
         model = Job
@@ -49,6 +50,7 @@ class JobSerializer(serializers.ModelSerializer):
             'status',
             'is_published',
             'is_expired',
+            'is_upcoming',
             'ai_extraction_metadata',
             'ai_confidence_score',
             'review_notes',

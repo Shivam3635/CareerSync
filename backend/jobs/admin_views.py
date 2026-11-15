@@ -47,6 +47,7 @@ class AdminDashboardStatsView(APIView):
         rejected_jobs = Job.objects.filter(status='rejected').count()
         active_jobs = Job.objects.filter(is_published=True, status='approved', application_deadline__gte=today).count()
         expired_jobs = Job.objects.filter(application_deadline__lt=today).count()
+        upcoming_jobs = Job.objects.filter(Q(is_upcoming=True) | Q(application_start_date__gt=today)).count()
         
         total_students = StudentProfile.objects.count()
         total_notifications_sent = Notification.objects.filter(is_sent=True).count()
@@ -65,6 +66,7 @@ class AdminDashboardStatsView(APIView):
             'rejected_jobs': rejected_jobs,
             'active_jobs': active_jobs,
             'expired_jobs': expired_jobs,
+            'upcoming_jobs': upcoming_jobs,
             'total_students': total_students,
             'total_notifications_sent': total_notifications_sent,
             'category_breakdown': category_breakdown,
@@ -98,6 +100,8 @@ class AdminJobListCreateView(APIView):
             queryset = queryset.filter(status='rejected')
         elif status_param == 'expired':
             queryset = queryset.filter(application_deadline__lt=today)
+        elif status_param == 'upcoming':
+            queryset = queryset.filter(Q(is_upcoming=True) | Q(application_start_date__gt=today))
 
         serializer = JobSerializer(queryset, many=True)
         return Response(serializer.data)
@@ -200,6 +204,8 @@ class AdminExtractUrlView(APIView):
             job_fields['verification_url'] = url
             if official_links.get('official_apply_url'):
                 job_fields['original_url'] = official_links['official_apply_url']
+            else:
+                job_fields['is_upcoming'] = True
             if official_links.get('official_pdf_url'):
                 job_fields['official_pdf_url'] = official_links['official_pdf_url']
 
@@ -286,6 +292,8 @@ class AdminExtractPdfView(APIView):
             job_fields['verification_url'] = url
             if official_links.get('official_apply_url'):
                 job_fields['original_url'] = official_links['official_apply_url']
+            else:
+                job_fields['is_upcoming'] = True
             if official_links.get('official_pdf_url'):
                 job_fields['official_pdf_url'] = official_links['official_pdf_url']
 

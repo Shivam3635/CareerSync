@@ -674,6 +674,126 @@ class AIAssistedJobPostingTestCase(APITestCase):
         self.assertEqual(res.status_code, 400)
         self.assertIn('expired', res.data['error'].lower())
 
+    @patch('jobs.services.job_watcher.extract_webpage_content')
+    @patch('jobs.services.job_watcher.extract_and_structure_job')
+    def test_job_watcher_detects_and_stages_upcoming_job(self, mock_structure, mock_webpage):
+        from jobs.services.job_watcher import ingest_single_recruitment
+        from django.utils import timezone
+        from datetime import timedelta
+
+        future_start = (timezone.now() + timedelta(days=20)).date()
+        future_deadline = (timezone.now() + timedelta(days=50)).date()
+
+        mock_webpage.return_value = {
+            'html_content': '<html><body><h1>UP Police Constable 2026</h1><p>Available Soon</p></body></html>',
+            'cleaned_text': 'UP Police Constable 2026 Available Soon Link Activate Soon',
+            'page_title': 'UP Police Constable 2026',
+            'detected_links': {},
+            'tables': [],
+            'key_values': {'Application Begin': 'Available Soon'},
+            'source_url': 'https://sarkariresult.com.cm/up-police-upcoming-2026/'
+        }
+
+        mock_structure.return_value = {
+            'job_fields': {
+                'title': 'UP Police 60,000 Constable 2026',
+                'organization': 'UPPRPB',
+                'advertisement_number': 'CONSTABLE/2026',
+                'application_start_date': str(future_start),
+                'application_deadline': str(future_deadline),
+                'min_age': 18,
+                'max_age': 25,
+                'category': 'Police & Security',
+                'is_upcoming': True,
+            },
+            'rule_fields': {
+                'min_qualification_level': '12th',
+                'allowed_status': 'completed_only'
+            },
+            'metadata': {'confidence_score': 0.92, 'is_upcoming': True}
+        }
+
+        test_url = 'https://sarkariresult.com.cm/up-police-upcoming-2026/'
+        res = ingest_single_recruitment(test_url, detected_title='UP Police Constable 2026')
+
+        self.assertTrue(res['success'])
+        job = Job.objects.get(id=res['job_id'])
+        self.assertTrue(job.is_upcoming)
+        self.assertTrue(job.is_currently_upcoming)
+
+    @patch('jobs.services.job_watcher.extract_webpage_content')
+    @patch('jobs.services.job_watcher.extract_and_structure_job')
+    def test_job_watcher_transitions_upcoming_job_to_live_in_future(self, mock_structure, mock_webpage):
+        from jobs.services.job_watcher import ingest_single_recruitment
+        from django.utils import timezone
+        from datetime import timedelta
+
+        test_url = 'https://sarkariresult.com.cm/rrb-alp-2026/'
+        today = timezone.now().date()
+        future_deadline = today + timedelta(days=30)
+
+        # 1. First: Staged in database as UPCOMING (no live apply link yet)
+        upcoming_job = Job.objects.create(
+            title="Railway RRB ALP Recruitment 2026",
+            organization="Railway Recruitment Board (RRB)",
+            advertisement_number="CEN 01/2026",
+            category="Railways",
+            verification_url=test_url,
+            original_url=test_url,  # points to summary page initially
+            application_start_date=today,
+            application_deadline=future_deadline,
+            age_cutoff_date=today,
+            is_upcoming=True,
+            status='approved',
+            is_published=True
+        )
+        JobEligibilityRule.objects.create(job=upcoming_job)
+        self.assertTrue(upcoming_job.is_currently_upcoming)
+
+        # 2. Later: Form goes LIVE! Sarkari Result updates page with official apply link
+        mock_webpage.return_value = {
+            'html_content': '<table><tr><td>Apply Online</td><td><a href="https://rrbapply.gov.in/alp">Click Here</a></td></tr></table>',
+            'cleaned_text': 'Apply Online Link Active: https://rrbapply.gov.in/alp',
+            'page_title': 'Railway RRB ALP 2026 Apply Online',
+            'detected_links': {'apply_url': 'https://rrbapply.gov.in/alp'},
+            'tables': [],
+            'key_values': {},
+            'source_url': test_url
+        }
+
+        mock_structure.return_value = {
+            'job_fields': {
+                'title': "Railway RRB ALP Recruitment 2026",
+                'organization': "Railway Recruitment Board (RRB)",
+                'advertisement_number': "CEN 01/2026",
+                'application_start_date': str(today),
+                'application_deadline': str(future_deadline),
+                'min_age': 18,
+                'max_age': 30,
+                'category': 'Railways',
+                'is_upcoming': False,
+            },
+            'rule_fields': {
+                'min_qualification_level': '10th',
+                'allowed_status': 'completed_only'
+            },
+            'metadata': {'confidence_score': 0.98, 'is_upcoming': False}
+        }
+
+        # 3. Autonomous watcher runs again when form goes live
+        res = ingest_single_recruitment(test_url, detected_title='Railway RRB ALP 2026')
+
+        self.assertTrue(res['success'])
+        self.assertTrue(res.get('updated_live'))
+        self.assertEqual(res['job_id'], upcoming_job.id)
+
+        # 4. Verify existing job transitioned to LIVE in-place!
+        upcoming_job.refresh_from_db()
+        self.assertFalse(upcoming_job.is_upcoming)
+        self.assertFalse(upcoming_job.is_currently_upcoming)
+        self.assertEqual(upcoming_job.original_url, 'https://rrbapply.gov.in/alp')
+
+
 
 
 

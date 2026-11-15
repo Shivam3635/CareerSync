@@ -49,6 +49,7 @@ class AdminJobWriteSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'is_published',
+            'is_upcoming',
             'ai_extraction_metadata',
             'ai_confidence_score',
             'review_notes',
