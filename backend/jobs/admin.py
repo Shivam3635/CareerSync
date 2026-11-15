@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Job, JobEligibilityRule
+from .models import Job, JobEligibilityRule, SkippedRecruitment
 from .services.notification_service import dispatch_job_notifications
 
 
@@ -45,3 +45,11 @@ class JobAdmin(admin.ModelAdmin):
 class JobEligibilityRuleAdmin(admin.ModelAdmin):
     list_display = ('job', 'min_qualification_level', 'allowed_status', 'domicile_requirement')
     list_filter = ('min_qualification_level', 'allowed_status', 'domicile_requirement')
+
+
+@admin.register(SkippedRecruitment)
+class SkippedRecruitmentAdmin(admin.ModelAdmin):
+    list_display = ('title', 'url', 'reason', 'application_deadline', 'skipped_at')
+    list_filter = ('reason', 'application_deadline', 'skipped_at')
+    search_fields = ('title', 'url', 'reason')
+

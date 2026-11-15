@@ -572,6 +572,109 @@ class AIAssistedJobPostingTestCase(APITestCase):
         self.assertIsNone(res)
         self.assertIn("Loaded via heuristic engine", err)
 
+    @patch('jobs.services.job_watcher.extract_webpage_content')
+    @patch('jobs.services.job_watcher.extract_and_structure_job')
+    def test_job_watcher_auto_skips_expired_deadline(self, mock_structure, mock_webpage):
+        from jobs.services.job_watcher import ingest_single_recruitment
+        from jobs.models import SkippedRecruitment
+
+        mock_webpage.return_value = {
+            'html_content': '<html><body>Test Content</body></html>',
+            'cleaned_text': 'Recruitment for 2025 Assistant Professor',
+            'page_title': 'UPPSC Assistant Professor 2025',
+            'detected_links': {},
+            'tables': [],
+            'key_values': {},
+            'source_url': 'https://sarkariresult.com.cm/uppsc-ap-2025/'
+        }
+
+        mock_structure.return_value = {
+            'job_fields': {
+                'title': 'UPPSC Assistant Professor 2025',
+                'organization': 'UPPSC',
+                'advertisement_number': '01/2025',
+                'application_deadline': '2025-03-15',  # Expired
+                'application_start_date': '2025-02-01',
+                'age_cutoff_date': '2025-02-01',
+                'min_age': 21,
+                'max_age': 40,
+                'category': 'Teaching'
+            },
+            'rule_fields': {
+                'min_qualification_level': 'Post Graduate',
+                'allowed_status': 'completed_only'
+            },
+            'metadata': {'confidence_score': 0.95}
+        }
+
+        test_url = 'https://sarkariresult.com.cm/uppsc-ap-2025/'
+        res = ingest_single_recruitment(test_url, detected_title='UPPSC AP 2025')
+
+        self.assertFalse(res['success'])
+        self.assertTrue(res['skipped'])
+        self.assertIn('expired', res['reason'].lower())
+        # Verify saved in SkippedRecruitment
+        self.assertTrue(SkippedRecruitment.objects.filter(url='https://sarkariresult.com.cm/uppsc-ap-2025').exists())
+        # Verify NOT created in Job table
+        self.assertFalse(Job.objects.filter(title='UPPSC Assistant Professor 2025').exists())
+
+    def test_is_notice_already_ingested_recognizes_skipped_recruitment(self):
+        from jobs.services.job_watcher import is_notice_already_ingested
+        from jobs.models import SkippedRecruitment
+
+        SkippedRecruitment.objects.create(
+            url='https://sarkariresult.com.cm/old-expired-job',
+            title='Old Expired Clerk 2024',
+            reason='Expired deadline'
+        )
+
+        self.assertTrue(is_notice_already_ingested('https://sarkariresult.com.cm/old-expired-job'))
+        self.assertTrue(is_notice_already_ingested('https://sarkariresult.com.cm/old-expired-job/'))
+        self.assertTrue(is_notice_already_ingested('https://other.com', 'Old Expired Clerk 2024'))
+        self.assertFalse(is_notice_already_ingested('https://sarkariresult.com.cm/brand-new-recruitment-2026/'))
+
+    def test_job_watcher_rejects_archaic_years(self):
+        from jobs.services.job_watcher import is_recruitment_link
+        # 2024 or older recruitment titles must be rejected early
+        self.assertFalse(is_recruitment_link("UPPSC Staff Nurse Recruitment 2024", "https://sarkariresult.com.cm/uppsc-2024/"))
+        self.assertFalse(is_recruitment_link("SSC MTS Recruitment 2023", "https://sarkariresult.com.cm/ssc-2023/"))
+        # 2026 recruitment titles must be accepted
+        self.assertTrue(is_recruitment_link("UPPSC Staff Nurse Recruitment 2026", "https://sarkariresult.com.cm/uppsc-2026/"))
+
+    @patch('jobs.admin_views.extract_webpage_content')
+    @patch('jobs.admin_views.extract_and_structure_job')
+    def test_admin_extract_url_rejects_expired_jobs(self, mock_structure, mock_webpage):
+        mock_webpage.return_value = {
+            'html_content': '<html><body>Old Post</body></html>',
+            'cleaned_text': 'Text',
+            'page_title': 'Old Exam 2024',
+            'detected_links': {},
+            'tables': [],
+            'key_values': {},
+            'source_url': 'https://sarkariresult.com.cm/old-job-2024/'
+        }
+
+        mock_structure.return_value = {
+            'job_fields': {
+                'title': 'Old Job 2024',
+                'organization': 'Board',
+                'advertisement_number': '02/2024',
+                'application_deadline': '2024-05-10',  # Expired
+                'application_start_date': '2024-04-01',
+                'min_age': 18,
+                'max_age': 30,
+                'category': 'General'
+            },
+            'rule_fields': {'min_qualification_level': 'Graduate', 'allowed_status': 'completed_only'},
+            'metadata': {'confidence_score': 0.90}
+        }
+
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post('/api/admin/jobs/extract-url/', {'url': 'https://sarkariresult.com.cm/old-job-2024/'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('expired', res.data['error'].lower())
+
+
 
 
 

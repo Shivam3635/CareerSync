@@ -164,6 +164,23 @@ class AdminExtractUrlView(APIView):
         rule_fields = structured_data['rule_fields']
         metadata = structured_data['metadata']
 
+        # Auto-Skip / Expiration check for manually pasted URLs
+        from datetime import datetime, date
+        deadline_val = job_fields.get('application_deadline')
+        deadline_date = None
+        if isinstance(deadline_val, (date, datetime)):
+            deadline_date = deadline_val if isinstance(deadline_val, date) else deadline_val.date()
+        elif isinstance(deadline_val, str) and deadline_val.strip():
+            try:
+                deadline_date = datetime.strptime(deadline_val.strip(), '%Y-%m-%d').date()
+            except ValueError:
+                deadline_date = None
+
+        if deadline_date and deadline_date < timezone.now().date():
+            return Response({
+                'error': f"Cannot add recruitment notice: The application deadline expired on {deadline_date}. CareerSync only accepts active recruitment openings."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         # Duplicate check
         dup = check_for_duplicate_job(
             job_fields['title'],

@@ -13,11 +13,13 @@ import re
 import time
 import threading
 import urllib.parse
+from datetime import datetime, date
 from typing import Dict, Any, List, Optional
 import requests
 from bs4 import BeautifulSoup
 from django.db.models import Q
-from jobs.models import Job
+from django.utils import timezone
+from jobs.models import Job, SkippedRecruitment
 from jobs.admin_serializers import AdminJobWriteSerializer
 from jobs.services.url_extractor import extract_webpage_content, SSRFSecurityError, InvalidContentError
 from jobs.services.ai_extractor import extract_and_structure_job
@@ -88,6 +90,9 @@ def is_recruitment_link(title: str, url: str) -> bool:
     combined_signal = f"{title_lower} {path_lower}"
     for kw in RECRUITMENT_KEYWORDS:
         if kw in combined_signal:
+            # Reject archaic recruitment notices with explicit old years (e.g. 2024 or earlier)
+            if re.search(r'\b(19\d\d|20[0-1]\d|202[0-4])\b', clean_title):
+                return False
             return True
 
     return False
@@ -95,7 +100,8 @@ def is_recruitment_link(title: str, url: str) -> bool:
 
 def is_notice_already_ingested(url: str, title: str = "") -> bool:
     """
-    Checks if a recruitment URL (verification or original) or title has already been ingested.
+    Checks if a recruitment URL (verification or original) or title has already been ingested
+    into active jobs or previously evaluated and skipped (e.g. expired deadlines).
     Checks both stripped and trailing-slash normalized variants.
     """
     clean_url = url.strip().rstrip('/')
@@ -107,9 +113,16 @@ def is_notice_already_ingested(url: str, title: str = "") -> bool:
         ).exists():
             return True
 
+        if SkippedRecruitment.objects.filter(
+            Q(url=clean_url) | Q(url=slash_url)
+        ).exists():
+            return True
+
     if title and len(title.strip()) > 8:
         clean_title = title.strip()
         if Job.objects.filter(title__iexact=clean_title).exists():
+            return True
+        if SkippedRecruitment.objects.filter(title__iexact=clean_title).exists():
             return True
 
     return False
@@ -301,17 +314,60 @@ def ingest_single_recruitment(
     rule_fields = structured_data['rule_fields']
     metadata = structured_data['metadata']
 
-    # Cross-check for duplicate by title + org or advt_no
     advt_no = job_fields.get('advertisement_number', '')
     org = job_fields.get('organization', '')
     title = job_fields.get('title', '')
+    clean_url = url.strip().rstrip('/')
 
+    # 1. AUTO-SKIP FILTER: Drop expired recruitment notices before staging
+    deadline_val = job_fields.get('application_deadline')
+    deadline_date = None
+    if isinstance(deadline_val, (date, datetime)):
+        deadline_date = deadline_val if isinstance(deadline_val, date) else deadline_val.date()
+    elif isinstance(deadline_val, str) and deadline_val.strip():
+        try:
+            deadline_date = datetime.strptime(deadline_val.strip(), '%Y-%m-%d').date()
+        except ValueError:
+            deadline_date = None
+
+    today = timezone.now().date()
+    if deadline_date and deadline_date < today:
+        logger.info(
+            "Auto-Skip Filter: Recruitment notice '%s' skipped - deadline %s expired before today %s",
+            title or detected_title, deadline_date, today
+        )
+        SkippedRecruitment.objects.update_or_create(
+            url=clean_url,
+            defaults={
+                'title': title or detected_title or 'Untitled Notice',
+                'reason': f"Deadline expired on {deadline_date}",
+                'application_deadline': deadline_date,
+            }
+        )
+        return {
+            'success': False,
+            'skipped': True,
+            'reason': f"Recruitment application deadline has expired ({deadline_date}). Auto-skip filter applied.",
+            'url': url,
+            'title': title or detected_title,
+            'deadline': str(deadline_date)
+        }
+
+    # Cross-check for duplicate by title + org or advt_no
     dup_query = Q()
     if advt_no and advt_no.strip():
         dup_query |= (Q(advertisement_number__iexact=advt_no.strip()) & Q(organization__iexact=org.strip()))
     if title and org:
         dup_query |= (Q(title__iexact=title.strip()) & Q(organization__iexact=org.strip()))
     if dup_query and Job.objects.filter(dup_query).exists():
+        SkippedRecruitment.objects.update_or_create(
+            url=clean_url,
+            defaults={
+                'title': title or detected_title or 'Untitled Notice',
+                'reason': f"Duplicate with existing job '{title}' ({org})",
+                'application_deadline': deadline_date,
+            }
+        )
         return {
             'success': False,
             'skipped': True,
