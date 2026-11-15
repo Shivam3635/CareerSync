@@ -82,6 +82,28 @@ class AuthAPITestCase(TestCase):
         self.assertEqual(response.data['student_profile']['domicile_state'], 'Gujarat')
 
     def test_job_matches_authenticated(self):
+        # Create a test job for eligibility matching
+        from jobs.models import Job, JobEligibilityRule
+        from datetime import date, timedelta
+        test_job = Job.objects.create(
+            title="Test Graduate Recruitment 2026",
+            organization="Central Commission",
+            category="Civil Services",
+            application_start_date=date.today() - timedelta(days=5),
+            application_deadline=date.today() + timedelta(days=20),
+            age_cutoff_date=date.today(),
+            min_age=18,
+            max_age=32,
+            is_published=True,
+            status='approved'
+        )
+        JobEligibilityRule.objects.create(
+            job=test_job,
+            min_qualification_level="Graduate",
+            allowed_status="completed_only",
+            domicile_requirement="All India"
+        )
+
         # Login demo student
         self.client.post('/api/auth/demo-login/', {'account_type': 'student'}, format='json')
         response = self.client.get('/api/jobs/matches/?status=eligible')

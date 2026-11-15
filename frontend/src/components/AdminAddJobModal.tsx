@@ -6,7 +6,6 @@ import {
   Sparkles, 
   Globe, 
   FileText, 
-  Edit3, 
   AlertTriangle, 
   CheckCircle2, 
   ExternalLink, 
@@ -37,11 +36,9 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
 }) => {
   // Navigation: 'choose_source' | 'review'
   const [step, setStep] = useState<'choose_source' | 'review'>(job ? 'review' : 'choose_source');
-  const [sourceMethod, setSourceMethod] = useState<'url' | 'pdf' | 'manual'>('url');
 
   // Input states for Source Selection
   const [urlInput, setUrlInput] = useState('');
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState('');
 
@@ -148,7 +145,6 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       setDraftJobId(null);
       setStatus('pending_review');
       setUrlInput('');
-      setPdfFile(null);
       setVerificationUrl('');
       setOfficialPdfUrl('');
       setExtractError('');
@@ -227,27 +223,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
     }
   };
 
-  // 2. Handle PDF Upload Extraction
-  const handleExtractFromPdf = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pdfFile) {
-      setExtractError('Please select a government notification PDF file.');
-      return;
-    }
-    setExtracting(true);
-    setExtractError('');
-
-    try {
-      const res = await api.extractJobFromPdf(pdfFile);
-      populateFromCreatedDraft(res.job, res.metadata);
-    } catch (err: any) {
-      setExtractError(err.message || 'Failed to extract job details from PDF.');
-    } finally {
-      setExtracting(false);
-    }
-  };
-
-  // 3. Handle Manual Entry Choice
+  // 2. Handle Manual Entry Choice
   const handleStartManual = () => {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -450,221 +426,85 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
         {/* Modal Content Body */}
         <div className="p-3 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-6">
           
-          {/* STEP 1: CHOOSE EXTRACTION SOURCE */}
+          {/* STEP 1: ADD JOB VIA SARKARI RESULT LINK */}
           {step === 'choose_source' && (
             <div className="space-y-6">
-              
-              {/* Method Switcher Tabs */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSourceMethod('url')}
-                  className={`p-4 border-3 text-left transition-all ${
-                    sourceMethod === 'url'
-                      ? 'bg-[#D9FF43] border-[#111111] shadow-[4px_4px_0px_#111111]'
-                      : 'bg-white border-[#111111]/40 hover:border-[#111111]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-black text-sm uppercase text-[#111111]">
-                    <Globe className="w-5 h-5 text-[#111111]" />
-                    1. Portal / Sarkari URL
+              <div className="bg-white border-3 border-[#111111] p-6 shadow-[4px_4px_0px_#111111] space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#D9FF43] border-2 border-[#111111] shadow-[2px_2px_0px_#111111]">
+                    <Sparkles className="w-5 h-5 text-[#111111]" />
                   </div>
-                  <p className="text-xs text-gray-700 mt-1 font-mono">
-                    Paste Sarkari Result or notification webpage link.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSourceMethod('pdf')}
-                  className={`p-4 border-3 text-left transition-all ${
-                    sourceMethod === 'pdf'
-                      ? 'bg-[#D9FF43] border-[#111111] shadow-[4px_4px_0px_#111111]'
-                      : 'bg-white border-[#111111]/40 hover:border-[#111111]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-black text-sm uppercase text-[#111111]">
-                    <FileText className="w-5 h-5 text-[#111111]" />
-                    2. Upload PDF Notification
-                  </div>
-                  <p className="text-xs text-gray-700 mt-1 font-mono">
-                    Upload official gazette / advertisement PDF (up to 15MB).
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSourceMethod('manual')}
-                  className={`p-4 border-3 text-left transition-all ${
-                    sourceMethod === 'manual'
-                      ? 'bg-[#D9FF43] border-[#111111] shadow-[4px_4px_0px_#111111]'
-                      : 'bg-white border-[#111111]/40 hover:border-[#111111]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-black text-sm uppercase text-[#111111]">
-                    <Edit3 className="w-5 h-5 text-[#111111]" />
-                    3. Manual Entry
-                  </div>
-                  <p className="text-xs text-gray-700 mt-1 font-mono">
-                    Enter all vacancy and eligibility rules manually.
-                  </p>
-                </button>
-              </div>
-
-              {/* Extraction Error Banner */}
-              {extractError && (
-                <div className="p-4 bg-[#FF6B4A]/20 border-3 border-[#FF6B4A] text-[#111111] flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-[#FF6B4A] shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-black text-sm uppercase">Extraction Halted</h4>
-                    <p className="text-xs font-mono mt-0.5">{extractError}</p>
+                    <h3 className="font-heading font-black uppercase text-base text-[#111111]">
+                      Add Job via Sarkari Result Link
+                    </h3>
+                    <p className="text-xs text-gray-600 font-mono">
+                      Single Source of Truth (SSOT) • Powered by Google Gemini AI
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* TAB 1: URL EXTRACTION FORM */}
-              {sourceMethod === 'url' && (
-                <form onSubmit={handleExtractFromUrl} className="bg-white border-3 border-[#111111] p-6 shadow-[4px_4px_0px_#111111] space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-[#111111]" />
-                    <h3 className="font-black uppercase text-base text-[#111111]">
-                      Paste Government Job Announcement URL
-                    </h3>
+                <p className="text-xs text-gray-700 font-mono leading-relaxed">
+                  Enter the recruitment notification URL from <strong>sarkariresult.com.cm</strong>. CareerSync will automatically extract official commission portals, notification PDFs, eligibility rules, and create a draft for your review.
+                </p>
+
+                {/* Extraction Error Banner */}
+                {extractError && (
+                  <div className="p-3 bg-[#FF6B4A]/20 border-2 border-[#FF6B4A] text-[#111111] flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-[#FF6B4A] shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-black text-xs uppercase">Extraction Halted</h4>
+                      <p className="text-xs font-mono mt-0.5">{extractError}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-600 font-mono">
-                    CareerSync automatically applies SSRF safeguards, strips advertisements, confirms it is an active recruitment notification (rejecting admit cards / exam results), and normalizes dates and vacancy figures.
-                  </p>
+                )}
 
-                  <div className="space-y-1">
+                <form onSubmit={handleExtractFromUrl} className="space-y-4 pt-1">
+                  <div className="space-y-1.5">
                     <label className="block text-xs font-black uppercase text-[#111111]">
-                      Recruitment Page URL <span className="text-[#FF6B4A]">*</span>
+                      Sarkari Result Recruitment URL <span className="text-[#FF6B4A]">*</span>
                     </label>
                     <input
                       type="url"
                       required
-                      placeholder="https://sarkariresult.com.cm/upessc-assistant-professor-recruitment-2026/"
+                      placeholder="https://sarkariresult.com.cm/uppsc-ro-aro-recruitment-2026/"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
                       disabled={extracting}
                       className="w-full p-3 bg-[#F5F0E8] border-2 border-[#111111] font-mono text-sm focus:outline-hidden focus:bg-white"
+                      autoFocus
                     />
                   </div>
 
-                  <div className="pt-2 flex justify-between items-center">
-                    <span className="text-xs font-mono text-gray-500">
-                      Supports: sarkariresult.com.cm (SSOT), UPSC, SSC, IBPS, State PSCs, RRB
-                    </span>
-                    <button
-                      type="submit"
-                      disabled={extracting}
-                      className="px-6 py-3 bg-[#D9FF43] hover:bg-[#cbf532] text-[#111111] font-black uppercase text-sm border-2 border-[#111111] shadow-[3px_3px_0px_#111111] flex items-center gap-2 transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50"
-                    >
-                      {extracting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Extracting & Structuring...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          Generate Draft with AI
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* TAB 2: PDF UPLOAD FORM */}
-              {sourceMethod === 'pdf' && (
-                <form onSubmit={handleExtractFromPdf} className="bg-white border-3 border-[#111111] p-6 shadow-[4px_4px_0px_#111111] space-y-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-[#111111]" />
-                    <h3 className="font-black uppercase text-base text-[#111111]">
-                      Upload Official Notification PDF
-                    </h3>
-                  </div>
-                  <p className="text-xs text-gray-600 font-mono">
-                    Upload the official recruitment PDF. CareerSync parses digital text, extracts category vacancy tables and age relaxations, and preserves the document securely in media storage.
-                  </p>
-
-                  <div className="border-2 border-dashed border-[#111111] p-8 text-center bg-[#F5F0E8]/50 hover:bg-[#F5F0E8] transition-colors cursor-pointer relative">
-                    <input
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      required
-                      disabled={extracting}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setPdfFile(e.target.files[0]);
-                        }
-                      }}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
-                    <FileText className="w-10 h-10 mx-auto text-[#111111]/70 mb-2" />
-                    {pdfFile ? (
-                      <div className="font-mono text-sm">
-                        <span className="font-bold text-[#111111]">{pdfFile.name}</span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          ({(pdfFile.size / (1024 * 1024)).toFixed(2)} MB)
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <p className="font-black text-sm uppercase text-[#111111]">
-                          Click or drag & drop recruitment notification PDF
-                        </p>
-                        <p className="text-xs text-gray-500 font-mono">Max size: 15 MB (.pdf only)</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={extracting || !pdfFile}
-                      className="px-6 py-3 bg-[#D9FF43] hover:bg-[#cbf532] text-[#111111] font-black uppercase text-sm border-2 border-[#111111] shadow-[3px_3px_0px_#111111] flex items-center gap-2 transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50"
-                    >
-                      {extracting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Parsing & Structuring PDF...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          Parse Notification PDF
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* TAB 3: MANUAL ENTRY */}
-              {sourceMethod === 'manual' && (
-                <div className="bg-white border-3 border-[#111111] p-6 shadow-[4px_4px_0px_#111111] space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Edit3 className="w-5 h-5 text-[#111111]" />
-                    <h3 className="font-black uppercase text-base text-[#111111]">
-                      Manual Job Notification Creation
-                    </h3>
-                  </div>
-                  <p className="text-xs text-gray-600 font-mono">
-                    Skip AI extraction and directly open the structured job editor to manually input dates, age criteria, category relaxations, and educational qualifications.
-                  </p>
-                  <div className="pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
                     <button
                       type="button"
                       onClick={handleStartManual}
-                      className="px-6 py-3 bg-[#D9FF43] hover:bg-[#cbf532] text-[#111111] font-black uppercase text-sm border-2 border-[#111111] shadow-[3px_3px_0px_#111111] flex items-center gap-2 transition-transform active:translate-x-0.5 active:translate-y-0.5"
+                      className="text-xs font-mono text-gray-600 hover:text-black underline cursor-pointer text-left"
                     >
-                      <Edit3 className="w-4 h-4" />
-                      Open Manual Editor
+                      Need to enter details manually? Open blank editor →
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={extracting || !urlInput.trim()}
+                      className="px-6 py-3 bg-[#D9FF43] hover:bg-[#cbf532] text-[#111111] font-black uppercase text-sm border-2 border-[#111111] shadow-[3px_3px_0px_#111111] flex items-center justify-center gap-2 transition-transform active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      {extracting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Extracting with Gemini AI...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Generate Draft with AI</span>
+                        </>
+                      )}
                     </button>
                   </div>
-                </div>
-              )}
+                </form>
+              </div>
             </div>
           )}
 

@@ -5,7 +5,10 @@ import uuid
 from typing import Dict, Any, Tuple
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
-import pypdf
+try:
+    import pypdf
+except ImportError:
+    pypdf = None
 
 MAX_PDF_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
 MIN_TEXT_CHARS_FOR_DIGITAL_PDF = 100
@@ -50,6 +53,9 @@ def extract_text_from_pdf_stream(pdf_bytes: bytes) -> Tuple[str, int, bool]:
     Extracts text using pypdf.
     Returns (extracted_text, page_count, is_scanned_candidate).
     """
+    if pypdf is None:
+        return "[PDF extraction disabled. Please use Sarkari Result URL for instant extraction.]", 1, False
+
     stream = io.BytesIO(pdf_bytes)
     try:
         reader = pypdf.PdfReader(stream)

@@ -279,7 +279,7 @@ export const AdminPage: React.FC = () => {
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow font-heading font-black text-xs uppercase tracking-wider hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] transition-transform cursor-pointer"
             >
               <Sparkles size={16} className="text-[#111111] stroke-[2.5]" />
-              <span>Add Job (URL / PDF / Manual)</span>
+              <span>+ Add Job Link</span>
             </button>
           </div>
         </div>
@@ -434,7 +434,6 @@ export const AdminPage: React.FC = () => {
                 {jobs.map((job) => {
                   const isPending = job.status === 'pending_review';
                   const hasConflicts = job.ai_extraction_metadata?.conflicts && job.ai_extraction_metadata.conflicts.length > 0;
-                  const hasWarnings = job.ai_extraction_metadata?.warnings && job.ai_extraction_metadata.warnings.length > 0;
 
                   return (
                     <div
@@ -525,17 +524,11 @@ export const AdminPage: React.FC = () => {
                             );
                           })()}
 
-                          {/* Conflict & Warning indicators */}
+                          {/* Conflict indicator (only for severe source contradictions) */}
                           {hasConflicts && (
                             <span className="font-bold text-[10px] uppercase bg-[#FF6B4A] text-white px-2 py-0.5 flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
                               Conflict Detected
-                            </span>
-                          )}
-
-                          {hasWarnings && !hasConflicts && (
-                            <span className="font-bold text-[10px] uppercase bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5">
-                              Verify Details
                             </span>
                           )}
 
