@@ -73,9 +73,38 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database configuration
-# Supports SQLite by default for hassle-free immediate local run,
-# with instant PostgreSQL activation if POSTGRES_DB is configured in .env.
-if os.getenv('POSTGRES_DB'):
+# 1. Production PostgreSQL via DATABASE_URL (Render Managed Database)
+# 2. Production PostgreSQL via individual POSTGRES_* environment variables
+# 3. Default to SQLite db.sqlite3 for hassle-free local development
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    import urllib.parse
+    # Normalize postgres:// to postgresql:// for Django compatibility
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=database_url,
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        }
+    except ImportError:
+        url = urllib.parse.urlparse(database_url)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': url.path[1:],
+                'USER': url.username or '',
+                'PASSWORD': url.password or '',
+                'HOST': url.hostname or '',
+                'PORT': url.port or 5432,
+            }
+        }
+elif os.getenv('POSTGRES_DB'):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
