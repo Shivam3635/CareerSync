@@ -94,6 +94,10 @@ if database_url:
         }
     except ImportError:
         url = urllib.parse.urlparse(database_url)
+        query_params = urllib.parse.parse_qs(url.query)
+        options = {}
+        if 'sslmode' in query_params:
+            options['sslmode'] = query_params['sslmode'][0]
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.postgresql',
@@ -102,6 +106,7 @@ if database_url:
                 'PASSWORD': url.password or '',
                 'HOST': url.hostname or '',
                 'PORT': url.port or 5432,
+                'OPTIONS': options,
             }
         }
 elif os.getenv('POSTGRES_DB'):
