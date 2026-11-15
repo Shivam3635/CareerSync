@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login, logout, get_user_model
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
@@ -9,6 +10,15 @@ from django.conf import settings
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
 
 User = get_user_model()
+
+
+def get_tokens_for_user(user):
+    """Generates standard JWT access and refresh tokens for user."""
+    refresh = RefreshToken.for_user(user)
+    return {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+    }
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -20,7 +30,14 @@ class RegisterView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             login(request, user)
-            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+            user_data = UserSerializer(user).data
+            tokens = get_tokens_for_user(user)
+            return Response({
+                **user_data,
+                'tokens': tokens,
+                'access': tokens['access'],
+                'refresh': tokens['refresh'],
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -33,7 +50,14 @@ class LoginView(APIView):
         if serializer.is_valid():
             user = serializer.validated_data['user']
             login(request, user)
-            return Response(UserSerializer(user).data)
+            user_data = UserSerializer(user).data
+            tokens = get_tokens_for_user(user)
+            return Response({
+                **user_data,
+                'tokens': tokens,
+                'access': tokens['access'],
+                'refresh': tokens['refresh'],
+            })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -89,7 +113,14 @@ class DemoLoginView(APIView):
             )
 
         login(request, user)
-        return Response(UserSerializer(user).data)
+        user_data = UserSerializer(user).data
+        tokens = get_tokens_for_user(user)
+        return Response({
+            **user_data,
+            'tokens': tokens,
+            'access': tokens['access'],
+            'refresh': tokens['refresh'],
+        })
 
 
 @method_decorator(csrf_exempt, name='dispatch')

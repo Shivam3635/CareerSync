@@ -103,15 +103,30 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
             </button>
           </div>
 
-          <a
-            href={job.original_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#cbf425] active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
-          >
-            <span>Show Details</span>
-            <ExternalLink size={13} className="stroke-[2.5]" />
-          </a>
+          <div className="flex items-center gap-2">
+            {job.official_pdf_url && (
+              <a
+                href={job.official_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-[11px] font-mono font-bold bg-[#F5F0E8] hover:bg-white text-[#111111] border-2 border-[#111111] brutal-shadow-sm whitespace-nowrap transition-colors"
+                title="View official commission notification PDF"
+              >
+                <span>PDF</span>
+                <ExternalLink size={11} />
+              </a>
+            )}
+
+            <a
+              href={job.original_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#cbf425] active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
+            >
+              <span>Apply Online</span>
+              <ExternalLink size={13} className="stroke-[2.5]" />
+            </a>
+          </div>
         </div>
       </div>
     </div>

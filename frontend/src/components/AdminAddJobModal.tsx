@@ -17,8 +17,10 @@ import {
   Building2,
   Award,
   Users,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
+import { formatFetchedTimestamp } from '../utils/date';
 
 interface AdminAddJobModalProps {
   job: Job | null; // null for new job extraction/creation; Job object for reviewing existing
@@ -53,6 +55,8 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
   const [category, setCategory] = useState('Civil Services');
   const [sourceName, setSourceName] = useState('Official Portal');
   const [originalUrl, setOriginalUrl] = useState('');
+  const [verificationUrl, setVerificationUrl] = useState('');
+  const [officialPdfUrl, setOfficialPdfUrl] = useState('');
   const [uploadedPdf, setUploadedPdf] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [selectionProcess, setSelectionProcess] = useState('');
@@ -84,6 +88,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
 
   // AI Metadata and Review Notes
   const [aiMetadata, setAiMetadata] = useState<any>(null);
+  const [fetchedAt, setFetchedAt] = useState<string>('');
   const [reviewNotes, setReviewNotes] = useState('');
   const [savingAction, setSavingAction] = useState<'save' | 'approve' | 'reject' | null>(null);
   const [reviewError, setReviewError] = useState('');
@@ -101,6 +106,8 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       setCategory(job.category || 'Civil Services');
       setSourceName(job.source_name || 'Official Portal');
       setOriginalUrl(job.original_url || '');
+      setVerificationUrl(job.verification_url || (job.ai_extraction_metadata as any)?.verification_url || '');
+      setOfficialPdfUrl(job.official_pdf_url || (job.ai_extraction_metadata as any)?.official_pdf_url || '');
       setUploadedPdf(job.uploaded_pdf || null);
       setDescription(job.description || '');
       setSelectionProcess(job.selection_process || '');
@@ -133,6 +140,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       }
 
       setAiMetadata(job.ai_extraction_metadata || null);
+      setFetchedAt(job.ai_extraction_metadata?.extraction_timestamp || job.created_at || '');
       setReviewNotes(job.review_notes || '');
     } else {
       // Clean slate for new creation
@@ -141,9 +149,12 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       setStatus('pending_review');
       setUrlInput('');
       setPdfFile(null);
+      setVerificationUrl('');
+      setOfficialPdfUrl('');
       setExtractError('');
       setReviewError('');
       setAiMetadata(null);
+      setFetchedAt('');
     }
   }, [job, isOpen]);
 
@@ -157,6 +168,8 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
     setCategory(newJob.category || 'Civil Services');
     setSourceName(newJob.source_name || 'Official Portal');
     setOriginalUrl(newJob.original_url || '');
+    setVerificationUrl(newJob.verification_url || meta?.verification_url || (newJob as any).ai_extraction_metadata?.verification_url || '');
+    setOfficialPdfUrl(newJob.official_pdf_url || meta?.official_pdf_url || (newJob as any).ai_extraction_metadata?.official_pdf_url || '');
     setUploadedPdf(newJob.uploaded_pdf || null);
     setDescription(newJob.description || '');
     setSelectionProcess(newJob.selection_process || '');
@@ -189,6 +202,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
     }
 
     setAiMetadata(meta || newJob.ai_extraction_metadata || null);
+    setFetchedAt(meta?.extraction_timestamp || newJob.ai_extraction_metadata?.extraction_timestamp || newJob.created_at || new Date().toISOString());
     setReviewNotes(newJob.review_notes || '');
     setStep('review');
   };
@@ -249,6 +263,8 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
     setCategory('Civil Services');
     setSourceName('Official Portal');
     setOriginalUrl('');
+    setVerificationUrl('');
+    setOfficialPdfUrl('');
     setUploadedPdf(null);
     setDescription('');
     setSelectionProcess('Written Examination, Interview, Document Verification');
@@ -280,6 +296,8 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       category,
       source_name: sourceName.trim() || 'Official Portal',
       original_url: originalUrl.trim(),
+      verification_url: verificationUrl.trim(),
+      official_pdf_url: officialPdfUrl.trim(),
       description: description.trim(),
       selection_process: selectionProcess.trim(),
       application_start_date: startDate || null,
@@ -394,6 +412,8 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
       setSavingAction(null);
     }
   };
+
+  const fetchedTimeInfo = formatFetchedTimestamp(fetchedAt);
 
   if (!isOpen) return null;
 
@@ -522,7 +542,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
                     <input
                       type="url"
                       required
-                      placeholder="https://www.sarkariresult.com/2026/upsc-civil-services.php"
+                      placeholder="https://sarkariresult.com.cm/upessc-assistant-professor-recruitment-2026/"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
                       disabled={extracting}
@@ -532,7 +552,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
 
                   <div className="pt-2 flex justify-between items-center">
                     <span className="text-xs font-mono text-gray-500">
-                      Supports: Sarkari Result, UPSC, SSC, IBPS, State PSCs, RRB
+                      Supports: sarkariresult.com.cm (SSOT), UPSC, SSC, IBPS, State PSCs, RRB
                     </span>
                     <button
                       type="submit"
@@ -652,9 +672,9 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
           {step === 'review' && (
             <div className="space-y-6">
               
-              {/* Review Header Banner: Status + Confidence + Source */}
+              {/* Review Header Banner: Status + Confidence + Timestamp + Verification Links */}
               <div className="p-4 bg-white border-3 border-[#111111] shadow-[3px_3px_0px_#111111] flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <span
                     className={`px-3 py-1 text-xs font-mono font-black uppercase border-2 border-[#111111] ${
                       status === 'approved'
@@ -674,18 +694,60 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
                       AI Confidence: {(aiMetadata.confidence_score * 100).toFixed(0)}%
                     </span>
                   )}
+
+                  {fetchedTimeInfo && (
+                    <span className="px-2.5 py-1 text-xs font-mono font-bold bg-[#F5F0E8] border border-[#111111] flex items-center gap-1.5 text-[#111111]">
+                      <span>🕒</span>
+                      <span>
+                        Fetched: <span className="font-semibold">{fetchedTimeInfo.formattedDate}</span> <span className="text-[#666666]">({fetchedTimeInfo.relative})</span>
+                      </span>
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-mono">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                  {/* Tier 1: Sarkari Result SSOT for Fast Visual Verification */}
+                  {verificationUrl && (
+                    <a
+                      href={verificationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 font-black text-xs uppercase bg-amber-300 hover:bg-amber-400 text-[#111111] border-2 border-[#111111] shadow-[2px_2px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                      title="Open Sarkari Result post to instantly audit pre-structured dates, vacancies, and criteria"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-[#111111]" />
+                      Verify on Sarkari Result
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+
+                  {/* Tier 2: Official Commission Portal / Apply URL for Aspirants */}
                   {originalUrl && (
                     <a
                       href={originalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-bold text-[#111111] underline hover:text-[#FF6B4A]"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs uppercase bg-[#F5F0E8] hover:bg-white text-[#111111] border-2 border-[#111111] shadow-[2px_2px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                      title="Open official government application portal"
                     >
-                      <Globe className="w-3.5 h-3.5" /> Source URL
-                      <ExternalLink className="w-3 h-3" />
+                      <Globe className="w-3.5 h-3.5 text-blue-600" />
+                      Govt Apply Portal
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+
+                  {/* Official PDF Link */}
+                  {officialPdfUrl && (
+                    <a
+                      href={officialPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs uppercase bg-[#F5F0E8] hover:bg-white text-[#111111] border-2 border-[#111111] shadow-[2px_2px_0px_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                      title="Open official notification PDF"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-purple-600" />
+                      Official PDF
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
 
@@ -694,9 +756,9 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
                       href={`/media/${uploadedPdf}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-bold text-[#111111] underline hover:text-[#FF6B4A] ml-2"
+                      className="inline-flex items-center gap-1 font-bold text-[#111111] underline hover:text-[#FF6B4A] ml-1"
                     >
-                      <FileText className="w-3.5 h-3.5" /> Source PDF
+                      <FileText className="w-3.5 h-3.5" /> Local PDF
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -705,7 +767,7 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setStep('choose_source')}
-                      className="text-xs text-gray-600 underline hover:text-black ml-3"
+                      className="text-xs text-gray-600 underline hover:text-black ml-2 cursor-pointer"
                     >
                       Change Source
                     </button>
@@ -1092,16 +1154,84 @@ export const AdminAddJobModal: React.FC<AdminAddJobModalProps> = ({
                     </div>
 
                     <div className="space-y-1 md:col-span-3">
-                      <label className="block text-xs font-black uppercase text-[#111111]">
-                        Official Notification / Application URL
+                      <label className="block text-xs font-black uppercase text-[#111111] flex items-center justify-between">
+                        <span>Verification Source URL (Sarkari Result SSOT)</span>
+                        <span className="text-[10px] text-gray-500 font-mono">Used by Admin for instant visual audit</span>
                       </label>
-                      <input
-                        type="url"
-                        placeholder="https://..."
-                        value={originalUrl}
-                        onChange={(e) => setOriginalUrl(e.target.value)}
-                        className="w-full p-2.5 bg-[#F5F0E8] border-2 border-[#111111] text-sm font-mono focus:bg-white focus:outline-hidden"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://sarkariresult.com.cm/..."
+                          value={verificationUrl}
+                          onChange={(e) => setVerificationUrl(e.target.value)}
+                          className="flex-1 p-2.5 bg-[#F5F0E8] border-2 border-[#111111] text-sm font-mono focus:bg-white focus:outline-hidden"
+                        />
+                        {verificationUrl && (
+                          <a
+                            href={verificationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 bg-amber-300 hover:bg-amber-400 text-[#111111] border-2 border-[#111111] flex items-center gap-1 text-xs font-bold font-mono shrink-0 cursor-pointer"
+                            title="Test verification link"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Test
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-3">
+                      <label className="block text-xs font-black uppercase text-[#111111] flex items-center justify-between">
+                        <span>Official Govt Application Portal URL</span>
+                        <span className="text-[10px] text-gray-500 font-mono">Displayed to Aspirants for final application</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={originalUrl}
+                          onChange={(e) => setOriginalUrl(e.target.value)}
+                          className="flex-1 p-2.5 bg-[#F5F0E8] border-2 border-[#111111] text-sm font-mono focus:bg-white focus:outline-hidden"
+                        />
+                        {originalUrl && (
+                          <a
+                            href={originalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 bg-[#F5F0E8] hover:bg-white text-[#111111] border-2 border-[#111111] flex items-center gap-1 text-xs font-bold font-mono shrink-0 cursor-pointer"
+                            title="Test government apply portal link"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Test
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-3">
+                      <label className="block text-xs font-black uppercase text-[#111111] flex items-center justify-between">
+                        <span>Official Notification PDF URL</span>
+                        <span className="text-[10px] text-gray-500 font-mono">Direct official commission PDF link</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://.../notice.pdf"
+                          value={officialPdfUrl}
+                          onChange={(e) => setOfficialPdfUrl(e.target.value)}
+                          className="flex-1 p-2.5 bg-[#F5F0E8] border-2 border-[#111111] text-sm font-mono focus:bg-white focus:outline-hidden"
+                        />
+                        {officialPdfUrl && (
+                          <a
+                            href={officialPdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 bg-[#F5F0E8] hover:bg-white text-[#111111] border-2 border-[#111111] flex items-center gap-1 text-xs font-bold font-mono shrink-0 cursor-pointer"
+                            title="Test notification PDF link"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Test
+                          </a>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-1 md:col-span-3">

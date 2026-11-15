@@ -110,10 +110,33 @@ def normalize_date_string(date_str: Optional[str]) -> Optional[str]:
     return None
 
 
-def call_gemini_api(source_text: str, custom_api_key: str = "") -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+# Cascade Fallback Chain for Google Gemini API
+CASCADE_MODELS = [
+    {
+        'name': 'gemini-flash-lite-latest',
+        'timeout': 35,
+        'label': 'Gemini Flash Lite (Production High-Throughput ~2s)'
+    },
+    {
+        'name': 'gemini-3-flash-preview',
+        'timeout': 40,
+        'label': 'Gemini 3 Flash Preview'
+    },
+    {
+        'name': 'gemini-3.8-flash',
+        'timeout': 60,
+        'label': 'Gemini 3.8 Flash (Latest Full-Scale)'
+    }
+]
+
+
+def call_gemini_api(source_text: str, custom_api_key: str = "", retries_per_model: int = 1) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    Calls Google Gemini API using active, ultra-fast Gemini 3 Flash Preview model.
-    Falls back to Gemini 3.5 Flash if needed.
+    Calls Google Gemini API using a multi-tier Cascade Fallback Chain:
+      Tier 1: gemini-flash-lite-latest (Ultra-fast ~2s, high-throughput, no daily cap locks)
+      Tier 2: gemini-3-flash-preview (High reasoning capability)
+      Tier 3: gemini-3.8-flash (Latest full-scale production model, generous 60s timeout)
+      Tier 4: Handled by caller -> Fallback Deterministic Heuristic Engine (Offline)
     Returns (result_dict, error_message).
     """
     api_key = (
@@ -124,13 +147,15 @@ def call_gemini_api(source_text: str, custom_api_key: str = "") -> Tuple[Optiona
     if not api_key:
         return None, "No Gemini API key configured. Loaded via heuristic engine."
 
-    candidate_models = ["gemini-3-flash-preview", "gemini-3.5-flash"]
+    # Focus context on the most relevant tables and text (up to 10,000 chars) for fast token processing
+    clean_text = source_text.strip()[:10000]
+
     payload = {
         "contents": [
             {
                 "parts": [
                     {"text": AI_EXTRACTION_PROMPT},
-                    {"text": f"SOURCE NOTIFICATION CONTENT:\n\n{source_text[:14000]}"}
+                    {"text": f"SOURCE NOTIFICATION CONTENT:\n\n{clean_text}"}
                 ]
             }
         ],
@@ -141,33 +166,44 @@ def call_gemini_api(source_text: str, custom_api_key: str = "") -> Tuple[Optiona
     }
 
     last_error = None
-    for model_name in candidate_models:
+    for model_cfg in CASCADE_MODELS:
+        model_name = model_cfg['name']
+        timeout_sec = model_cfg['timeout']
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        try:
-            resp = requests.post(url, json=payload, timeout=18)
-            if resp.status_code == 200:
-                data = resp.json()
-                candidates = data.get('candidates', [])
-                if candidates:
-                    content_text = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-                    if content_text:
-                        parsed = json.loads(content_text)
-                        parsed['model_used'] = model_name
-                        return parsed, None
-            elif resp.status_code == 503:
-                last_error = "Google AI Studio is experiencing temporary high demand (HTTP 503)."
+
+        for attempt in range(retries_per_model + 1):
+            try:
+                resp = requests.post(url, json=payload, timeout=timeout_sec)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get('candidates', [])
+                    if candidates:
+                        content_text = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                        if content_text:
+                            parsed = json.loads(content_text)
+                            parsed['model_used'] = model_name
+                            return parsed, None
+                elif resp.status_code == 503:
+                    last_error = f"Gemini ({model_name}) is experiencing temporary high demand (HTTP 503)."
+                    if attempt < retries_per_model:
+                        time.sleep(3)
+                    continue
+                elif resp.status_code == 429:
+                    last_error = f"Gemini ({model_name}) rate limit reached (HTTP 429)."
+                    if attempt < retries_per_model:
+                        time.sleep(4)
+                    continue
+                else:
+                    last_error = f"Gemini API returned HTTP {resp.status_code} on {model_name}."
+                    break
+            except requests.exceptions.Timeout:
+                last_error = f"Gemini API ({model_name}) timed out after {timeout_sec}s."
+                if attempt < retries_per_model:
+                    time.sleep(2)
                 continue
-            elif resp.status_code == 429:
-                return None, "Gemini API rate limit reached (HTTP 429). Loaded via heuristic engine."
-            else:
-                last_error = f"Gemini API returned HTTP {resp.status_code} on {model_name}."
-                continue
-        except requests.exceptions.Timeout:
-            last_error = f"Gemini API ({model_name}) timed out."
-            continue
-        except Exception as e:
-            last_error = f"Gemini API connection error: {str(e)[:80]}."
-            continue
+            except Exception as e:
+                last_error = f"Gemini API ({model_name}) connection error: {str(e)[:80]}."
+                break
 
     return None, f"{last_error or 'Gemini extraction could not complete'}. Loaded via heuristic engine."
 
@@ -449,7 +485,7 @@ def extract_and_structure_job(
     
     if gemini_result:
         raw_extracted = gemini_result
-        engine_used = f"Google Gemini ({gemini_result.get('model_used', 'gemini-3.5-flash')})"
+        engine_used = f"Google Gemini ({gemini_result.get('model_used', 'gemini-3-flash-preview')})"
     else:
         # 2. Use our enhanced deterministic rule parser
         raw_extracted = fallback_deterministic_extractor(

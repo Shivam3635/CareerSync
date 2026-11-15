@@ -424,4 +424,155 @@ class AIAssistedJobPostingTestCase(APITestCase):
         self.assertEqual(job.status, 'rejected')
         self.assertFalse(job.is_published)
 
+    def test_job_watcher_filter_logic(self):
+        from jobs.services.job_watcher import is_recruitment_link
+        # Genuine recruitment notices
+        self.assertTrue(is_recruitment_link("SSC CGL 2026 Apply Online Form", "https://example.com/ssc-cgl-online-form"))
+        self.assertTrue(is_recruitment_link("UPSC Civil Services 2026 Notification", "https://example.com/upsc-cse-notification"))
+        self.assertTrue(is_recruitment_link("RRB Technician Vacancy 2026", "https://example.com/rrb-technician-bharti"))
+
+        # Non-recruitment notices (Must be rejected)
+        self.assertFalse(is_recruitment_link("SSC CGL Tier 1 Admit Card 2026", "https://example.com/ssc-admit-card"))
+        self.assertFalse(is_recruitment_link("UPSC CSE Prelims Result Declared", "https://example.com/upsc-prelims-result"))
+        self.assertFalse(is_recruitment_link("IBPS PO Official Answer Key", "https://example.com/ibps-po-answer-key"))
+        self.assertFalse(is_recruitment_link("Railway Exam Date Sheet & Schedule", "https://example.com/rrb-exam-date"))
+
+    def test_job_watcher_deduplication(self):
+        from jobs.services.job_watcher import is_notice_already_ingested
+        # Create an existing job
+        Job.objects.create(
+            title="Combined Graduate Level Examination (SSC CGL) 2026",
+            organization="Staff Selection Commission (SSC)",
+            original_url="https://example.com/cgl2026",
+            status="approved",
+            is_published=True
+        )
+        # Existing job URL or Title should return True
+        self.assertTrue(is_notice_already_ingested("https://example.com/cgl2026", "Some Title"))
+        self.assertTrue(is_notice_already_ingested("https://example.com/other-url", "Combined Graduate Level Examination (SSC CGL) 2026"))
+        # Brand new uningested job should return False
+        self.assertFalse(is_notice_already_ingested("https://example.com/brand-new-job-2026", "Brand New Board Officer Recruitment 2026"))
+
+    def test_admin_auto_discover_api_security(self):
+        # Non-admin / student must be rejected
+        self.client.force_authenticate(user=self.student)
+        res = self.client.post('/api/admin/jobs/auto-discover/', {'limit': 2}, format='json')
+        self.assertEqual(res.status_code, 403)
+
+        # Admin is authorized
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post('/api/admin/jobs/auto-discover/', {'limit': 2}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('report', res.data)
+        self.assertIn('ingested_count', res.data)
+
+    def test_parse_sarkari_result_post_links(self):
+        from bs4 import BeautifulSoup
+        from jobs.services.job_watcher import parse_sarkari_result_post_links
+
+        html = """
+        <html>
+          <body>
+            <h1>UPESSC Assistant Professor Recruitment 2026</h1>
+            <table>
+              <tr><th>Important Links</th><th>Links</th></tr>
+              <tr>
+                <td>Apply Online</td>
+                <td><a href="https://apply.upessc.org/register">Click Here</a></td>
+              </tr>
+              <tr>
+                <td>Check Official Notification</td>
+                <td><a href="https://upessc.up.gov.in/notices/advt_51.pdf">Download PDF</a></td>
+              </tr>
+              <tr>
+                <td>UPESSC Official Website</td>
+                <td><a href="https://upessc.up.gov.in">Visit Website</a></td>
+              </tr>
+            </table>
+          </body>
+        </html>
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        links = parse_sarkari_result_post_links(soup)
+        self.assertEqual(links['official_apply_url'], "https://apply.upessc.org/register")
+        self.assertEqual(links['official_pdf_url'], "https://upessc.up.gov.in/notices/advt_51.pdf")
+        self.assertEqual(links['official_portal_url'], "https://upessc.up.gov.in")
+
+    def test_sarkari_result_two_tier_urls_in_admin_api(self):
+        self.client.force_authenticate(user=self.admin)
+        payload = {
+            'title': 'UPESSC Assistant Professor Online Form 2026',
+            'organization': 'Uttar Pradesh Higher Education Commission',
+            'category': 'Teaching',
+            'status': 'pending_review',
+            'is_published': False,
+            'source_name': 'Sarkari Result',
+            'source_type': 'url',
+            'verification_url': 'https://sarkariresult.com.cm/upessc-assistant-professor-recruitment-2026/',
+            'original_url': 'https://apply.upessc.org/register',
+            'official_pdf_url': 'https://upessc.up.gov.in/notices/advt_51.pdf',
+            'application_deadline': '2026-05-15',
+            'min_age': 21,
+            'max_age': 40,
+            'min_qualification_level': 'Post Graduate',
+        }
+        res = self.client.post('/api/admin/jobs/', payload, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertIn('job', res.data)
+        job_id = res.data['job']['id']
+        job = Job.objects.get(id=job_id)
+        self.assertEqual(job.verification_url, 'https://sarkariresult.com.cm/upessc-assistant-professor-recruitment-2026/')
+        self.assertEqual(job.original_url, 'https://apply.upessc.org/register')
+        self.assertEqual(job.official_pdf_url, 'https://upessc.up.gov.in/notices/advt_51.pdf')
+        self.assertEqual(res.data['job']['verification_url'], 'https://sarkariresult.com.cm/upessc-assistant-professor-recruitment-2026/')
+        self.assertEqual(res.data['job']['official_pdf_url'], 'https://upessc.up.gov.in/notices/advt_51.pdf')
+        self.assertEqual(job.status, 'pending_review')
+        self.assertFalse(job.is_published)
+
+    @patch('jobs.services.ai_extractor.requests.post')
+    def test_cascade_fallback_gemini_api(self, mock_post):
+        from jobs.services.ai_extractor import call_gemini_api
+        import requests
+
+        # Case 1: Primary model (gemini-flash-lite-latest) succeeds
+        mock_response_primary = MagicMock()
+        mock_response_primary.status_code = 200
+        mock_response_primary.json.return_value = {
+            'candidates': [{'content': {'parts': [{'text': '{"title": "Fast Job", "min_age": 21}'}]}}]
+        }
+        mock_post.return_value = mock_response_primary
+
+        res, err = call_gemini_api("Some job text", custom_api_key="dummy_key", retries_per_model=0)
+        self.assertIsNotNone(res)
+        self.assertEqual(res['title'], 'Fast Job')
+        self.assertEqual(res['model_used'], 'gemini-flash-lite-latest')
+        self.assertIsNone(err)
+
+        # Case 2: Primary model times out, fallback model (gemini-3-flash-preview) succeeds
+        mock_response_backup = MagicMock()
+        mock_response_backup.status_code = 200
+        mock_response_backup.json.return_value = {
+            'candidates': [{'content': {'parts': [{'text': '{"title": "Backup Job", "min_age": 18}'}]}}]
+        }
+        mock_post.side_effect = [requests.exceptions.Timeout("Read timeout"), mock_response_backup]
+
+        res, err = call_gemini_api("Some job text", custom_api_key="dummy_key", retries_per_model=0)
+        self.assertIsNotNone(res)
+        self.assertEqual(res['title'], 'Backup Job')
+        self.assertEqual(res['model_used'], 'gemini-3-flash-preview')
+        self.assertIsNone(err)
+
+        # Case 3: All models fail -> graceful fallback to heuristic engine
+        mock_post.side_effect = [
+            requests.exceptions.Timeout("Timeout 1"),
+            requests.exceptions.Timeout("Timeout 2"),
+            requests.exceptions.Timeout("Timeout 3")
+        ]
+        res, err = call_gemini_api("Some job text", custom_api_key="dummy_key", retries_per_model=0)
+        self.assertIsNone(res)
+        self.assertIn("Loaded via heuristic engine", err)
+
+
+
+
 

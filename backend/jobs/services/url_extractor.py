@@ -311,5 +311,6 @@ def extract_webpage_content(url: str) -> Dict[str, Any]:
         'tables': tables_summary[:8],
         'key_values': key_values,
         'detected_links': detected_links,
+        'html_content': str(soup),
         'page_type': page_type,
     }

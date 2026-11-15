@@ -15,6 +15,7 @@ from .services.notification_service import dispatch_job_notifications
 from .services.url_extractor import extract_webpage_content, SSRFSecurityError, InvalidContentError
 from .services.pdf_extractor import extract_pdf_content, PDFValidationError
 from .services.ai_extractor import extract_and_structure_job
+from .services.job_watcher import run_autonomous_discovery_and_ingestion
 from students.models import StudentProfile
 from notifications.models import Notification
 
@@ -140,9 +141,17 @@ class AdminExtractUrlView(APIView):
         except Exception as e:
             return Response({'error': f"Failed to fetch or parse webpage: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Run AI Structuring & Normalization
+        # Run AI Structuring & Normalization with table-first context
+        tables_block = "\n\n".join(extracted_webpage.get('tables', []))
+        content_summary = extracted_webpage.get('cleaned_text', '')[:7000]
+        structured_source = (
+            f"PAGE TITLE: {extracted_webpage['page_title']}\n\n"
+            f"STRUCTURED TABLES:\n{tables_block}\n\n"
+            f"NOTIFICATION SUMMARY:\n{content_summary}"
+        )
+
         structured_data = extract_and_structure_job(
-            source_text=f"PAGE TITLE: {extracted_webpage['page_title']}\n\nTABLES:\n{chr(10).join(extracted_webpage['tables'])}\n\nCONTENT:\n{extracted_webpage['cleaned_text']}",
+            source_text=structured_source,
             source_url=extracted_webpage['source_url'],
             detected_links=extracted_webpage['detected_links'],
             source_type='url',
@@ -166,6 +175,17 @@ class AdminExtractUrlView(APIView):
             metadata['warnings'].append(f"Potential duplicate notice: An existing job '{dup.title}' (ID #{dup.id}) has matching details.")
 
         # Save as pending_review draft
+        if 'sarkariresult.com' in url.lower():
+            from bs4 import BeautifulSoup
+            from .services.job_watcher import parse_sarkari_result_post_links
+            soup = BeautifulSoup(extracted_webpage.get('html_content', ''), 'html.parser')
+            official_links = parse_sarkari_result_post_links(soup)
+            job_fields['verification_url'] = url
+            if official_links.get('official_apply_url'):
+                job_fields['original_url'] = official_links['official_apply_url']
+            if official_links.get('official_pdf_url'):
+                job_fields['official_pdf_url'] = official_links['official_pdf_url']
+
         job_fields['ai_extraction_metadata'] = metadata
         job_fields['ai_confidence_score'] = metadata['confidence_score']
         job_fields['status'] = 'pending_review'
@@ -241,6 +261,17 @@ class AdminExtractPdfView(APIView):
             metadata['warnings'].append(f"Potential duplicate notice: An existing job '{dup.title}' (ID #{dup.id}) has matching details.")
 
         # Save as pending_review draft
+        if 'sarkariresult.com' in url.lower():
+            from bs4 import BeautifulSoup
+            from .services.job_watcher import parse_sarkari_result_post_links
+            soup = BeautifulSoup(extracted_webpage.get('html_content', ''), 'html.parser')
+            official_links = parse_sarkari_result_post_links(soup)
+            job_fields['verification_url'] = url
+            if official_links.get('official_apply_url'):
+                job_fields['original_url'] = official_links['official_apply_url']
+            if official_links.get('official_pdf_url'):
+                job_fields['official_pdf_url'] = official_links['official_pdf_url']
+
         job_fields['ai_extraction_metadata'] = metadata
         job_fields['ai_confidence_score'] = metadata['confidence_score']
         job_fields['status'] = 'pending_review'
@@ -270,9 +301,10 @@ class AdminAiStatusView(APIView):
         configured_key = os.environ.get('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '')
         return Response({
             'gemini_configured': bool(configured_key.strip()),
-            'default_model': 'gemini-3-flash-preview',
-            'supported_models': ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-flash-latest'],
-            'fallback_engine': 'High-Fidelity Heuristic Parser (Offline)'
+            'default_model': 'gemini-flash-lite-latest',
+            'supported_models': ['gemini-flash-lite-latest', 'gemini-3-flash-preview', 'gemini-3.8-flash'],
+            'fallback_engine': 'High-Fidelity Heuristic Parser (Offline)',
+            'autonomous_watcher_active': True,
         })
 
     def post(self, request):
@@ -280,19 +312,19 @@ class AdminAiStatusView(APIView):
         if not test_key:
             return Response({'error': 'Please provide an API key to test.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ping Gemini with a tiny prompt
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={test_key}"
+        # Test Gemini connection with high-throughput production model
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={test_key}"
         try:
             resp = requests.post(
                 url,
                 json={"contents": [{"parts": [{"text": "Hello, respond with OK."}]}]},
-                timeout=10
+                timeout=12
             )
             if resp.status_code == 200:
                 return Response({
                     'valid': True,
-                    'model': 'gemini-3.5-flash',
-                    'message': 'Google Gemini API connected and verified successfully!'
+                    'model': 'gemini-flash-lite-latest (Primary) / gemini-3.8-flash (Backup)',
+                    'message': 'Google Gemini Cascade (gemini-flash-lite-latest -> gemini-3.8-flash) connected and verified successfully!'
                 })
             else:
                 return Response({
@@ -454,3 +486,38 @@ class AdminStudentListView(APIView):
         students = StudentProfile.objects.select_related('user').prefetch_related('qualifications').order_by('-created_at')
         serializer = AdminStudentSerializer(students, many=True)
         return Response(serializer.data)
+
+
+class AdminAutoDiscoverView(APIView):
+    """
+    On-Demand Autonomous Recruitment Discovery & Auto-Drafting.
+    Scrapes trusted public notification feeds, strips admit cards/results,
+    extracts details using AI, and stages drafts directly into the Admin Review Queue.
+    """
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        limit = int(request.data.get('limit', 3))
+        limit = max(1, min(limit, 10))  # between 1 and 10 to prevent gateway timeouts
+        custom_key = request.data.get('gemini_api_key', '').strip()
+
+        try:
+            report = run_autonomous_discovery_and_ingestion(
+                limit=limit,
+                custom_gemini_api_key=custom_key
+            )
+            ingested_count = report['ingested_count']
+            message = (
+                f"Auto-discovery completed! Discovered {report['discovered_candidates']} notices, "
+                f"staged {ingested_count} new draft(s) into your Review Queue "
+                f"({report['skipped_count']} duplicate/filtered skipped)."
+            )
+            return Response({
+                'report': report,
+                'message': message,
+                'ingested_count': ingested_count,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'error': f"Auto-discovery failed: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

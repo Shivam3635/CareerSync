@@ -47,7 +47,9 @@ class Job(models.Model):
     vacancy_details = models.JSONField(default=list, blank=True, help_text="Post-wise or category-wise vacancy breakdown")
     selection_process = models.TextField(blank=True, help_text="Selection stages: Prelims, Mains, Interview, etc.")
     
-    original_url = models.URLField(max_length=500, blank=True, help_text="Official recruitment advertisement or notification URL")
+    original_url = models.URLField(max_length=500, blank=True, help_text="Official recruitment advertisement or candidate application URL")
+    verification_url = models.URLField(max_length=500, blank=True, help_text="Sarkari Result verification page URL for admin audit")
+    official_pdf_url = models.URLField(max_length=500, blank=True, help_text="Official commission notification PDF link")
     source_name = models.CharField(max_length=150, default="Official Portal")
     source_type = models.CharField(max_length=20, choices=SOURCE_TYPE_CHOICES, default='manual')
     uploaded_pdf = models.FileField(upload_to='notifications_pdfs/', null=True, blank=True)

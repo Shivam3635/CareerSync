@@ -10,12 +10,14 @@ from .admin_views import (
     AdminJobApproveView,
     AdminJobRejectView,
     AdminAiStatusView,
+    AdminAutoDiscoverView,
 )
 
 urlpatterns = [
     path('stats/', AdminDashboardStatsView.as_view(), name='admin_stats'),
     path('ai-status/', AdminAiStatusView.as_view(), name='admin_ai_status'),
     path('jobs/', AdminJobListCreateView.as_view(), name='admin_jobs_list_create'),
+    path('jobs/auto-discover/', AdminAutoDiscoverView.as_view(), name='admin_auto_discover'),
     path('jobs/extract-url/', AdminExtractUrlView.as_view(), name='admin_extract_url'),
     path('jobs/extract-pdf/', AdminExtractPdfView.as_view(), name='admin_extract_pdf'),
     path('jobs/<int:pk>/', AdminJobDetailView.as_view(), name='admin_job_detail'),

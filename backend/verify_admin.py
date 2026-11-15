@@ -6,11 +6,17 @@ BASE = 'http://127.0.0.1:8000/api'
 def test_admin():
     print("=== TESTING CUSTOM ADMIN BACKEND & WORKFLOWS ===")
 
-    # 1. Login admin demo
-    login_res = session.post(f'{BASE}/auth/demo-login/', json={'account_type': 'admin'})
+    # 1. Login admin credentials
+    login_res = session.post(f'{BASE}/auth/login/', json={
+        'email': 'admin@careersync.demo',
+        'password': 'admin123'
+    })
     assert login_res.status_code == 200, f'Admin login failed: {login_res.text}'
     user = login_res.json()
-    print(f"[OK] Logged in as: {user['email']} (Role: {user['role']})")
+    access_token = user.get('access')
+    if access_token:
+        session.headers.update({'Authorization': f'Bearer {access_token}'})
+    print(f"[OK] Logged in as: {user['email']} (Role: {user['role']}) [JWT: {'Attached' if access_token else 'None'}]")
 
     # 2. Retrieve Stats
     stats_res = session.get(f'{BASE}/admin/stats/')

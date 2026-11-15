@@ -1,5 +1,52 @@
 import type { User, JobMatchesResponse, StudentProfile, Job } from '../types';
 
+const ACCESS_TOKEN_KEY = 'careersync_access_token';
+const REFRESH_TOKEN_KEY = 'careersync_refresh_token';
+
+export function getStoredAccessToken(): string | null {
+  try {
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredRefreshToken(): string | null {
+  try {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredTokens(tokens: { access?: string; refresh?: string }) {
+  try {
+    if (tokens.access) localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
+    if (tokens.refresh) localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
+  } catch (e) {
+    console.warn('Failed to save tokens in localStorage:', e);
+  }
+}
+
+export function clearStoredTokens() {
+  try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  } catch (e) {
+    console.warn('Failed to clear tokens from localStorage:', e);
+  }
+}
+
+function extractAndSaveTokens(res: any) {
+  if (res && typeof res === 'object') {
+    const access = res.access || res.tokens?.access;
+    const refresh = res.refresh || res.tokens?.refresh;
+    if (access || refresh) {
+      setStoredTokens({ access, refresh });
+    }
+  }
+}
+
 let envApiUrl = (import.meta as any).env?.VITE_API_URL;
 // Auto-correct missing unique suffix if misconfigured in deployment environment variables
 if (envApiUrl && envApiUrl.includes('careersync-api.onrender.com') && !envApiUrl.includes('careersync-api-unpo.onrender.com')) {
@@ -16,7 +63,7 @@ const BASE_URL = envApiUrl
   ? '/api'
   : 'https://careersync-api-unpo.onrender.com/api';
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(endpoint: string, options: RequestInit = {}, isRetry: boolean = false): Promise<T> {
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -24,17 +71,51 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers as Record<string, string> || {}),
   };
 
+  const token = getStoredAccessToken();
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
       headers,
-      credentials: 'include', // important for session cookies
+      credentials: 'include', // important for session cookies & cross-origin hybrid
     });
   } catch (err: any) {
     throw new Error(
       'Unable to connect to CareerSync server. If the server was idle, Render may be waking up (takes ~30-50s on free tier). Please retry in a few moments.'
     );
+  }
+
+  // Handle Token Expiry & Automatic Refresh on 401
+  if (response.status === 401 && !isRetry && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register') && !endpoint.includes('/auth/token/refresh')) {
+    const refreshToken = getStoredRefreshToken();
+    if (refreshToken) {
+      try {
+        const refreshResp = await fetch(`${BASE_URL}/auth/token/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+        if (refreshResp.ok) {
+          const refreshData = await refreshResp.json();
+          if (refreshData.access) {
+            setStoredTokens({ access: refreshData.access });
+            const retryHeaders = {
+              ...headers,
+              Authorization: `Bearer ${refreshData.access}`,
+            };
+            return request<T>(endpoint, { ...options, headers: retryHeaders }, true);
+          }
+        } else {
+          clearStoredTokens();
+        }
+      } catch {
+        clearStoredTokens();
+      }
+    }
   }
 
   const contentType = response.headers.get('content-type') || '';
@@ -86,30 +167,62 @@ export const api = {
   },
 
   async login(email: string, password: string): Promise<User> {
-    return request<User>('/auth/login/', {
+    const res = await request<User>('/auth/login/', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
+    extractAndSaveTokens(res);
+    return res;
   },
 
   async demoLogin(accountType: 'student' | 'admin'): Promise<User> {
-    return request<User>('/auth/demo-login/', {
+    const res = await request<User>('/auth/demo-login/', {
       method: 'POST',
       body: JSON.stringify({ account_type: accountType }),
     });
+    extractAndSaveTokens(res);
+    return res;
   },
 
   async register(data: any): Promise<User> {
-    return request<User>('/auth/register/', {
+    const res = await request<User>('/auth/register/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    extractAndSaveTokens(res);
+    return res;
   },
 
   async logout(): Promise<void> {
-    await request('/auth/logout/', {
-      method: 'POST',
-    });
+    try {
+      await request('/auth/logout/', {
+        method: 'POST',
+      });
+    } finally {
+      clearStoredTokens();
+    }
+  },
+
+  async refreshToken(): Promise<string | null> {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) return null;
+    try {
+      const res = await fetch(`${BASE_URL}/auth/token/refresh/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.access) {
+          setStoredTokens({ access: data.access });
+          return data.access;
+        }
+      }
+    } catch {
+      clearStoredTokens();
+    }
+    return null;
   },
 
   // Student Profile
@@ -250,5 +363,12 @@ export const api = {
 
   async getAdminStudents(): Promise<any[]> {
     return request('/admin/students/');
+  },
+
+  async runAutoDiscover(limit: number = 3): Promise<{ report: any; message: string; ingested_count: number }> {
+    return request('/admin/jobs/auto-discover/', {
+      method: 'POST',
+      body: JSON.stringify({ limit }),
+    });
   },
 };

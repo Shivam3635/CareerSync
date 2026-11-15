@@ -20,12 +20,47 @@ class AuthAPITestCase(TestCase):
         self.assertEqual(response.data['email'], 'student@careersync.demo')
         self.assertEqual(response.data['role'], 'student')
         self.assertIsNotNone(response.data.get('student_profile'))
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
 
-    def test_admin_demo_login(self):
+    def test_admin_demo_login_rejected_for_security(self):
         response = self.client.post('/api/auth/demo-login/', {'account_type': 'admin'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('error', response.data)
+
+    def test_admin_credential_login(self):
+        response = self.client.post('/api/auth/login/', {
+            'email': 'admin@careersync.demo',
+            'password': 'admin123'
+        }, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], 'admin@careersync.demo')
         self.assertEqual(response.data['role'], 'admin')
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+
+    def test_jwt_bearer_token_authentication(self):
+        # 1. Login student to obtain token
+        login_res = self.client.post('/api/auth/demo-login/', {'account_type': 'student'}, format='json')
+        access_token = login_res.data['access']
+
+        # 2. Create fresh client without any session cookies
+        token_client = APIClient()
+        token_client.credentials(HTTP_AUTHORIZATION='Bearer ' + access_token)
+
+        # 3. Access protected profile endpoint
+        profile_res = token_client.get('/api/profile/')
+        self.assertEqual(profile_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile_res.data['category'], 'OBC')
+
+    def test_jwt_token_refresh(self):
+        login_res = self.client.post('/api/auth/demo-login/', {'account_type': 'student'}, format='json')
+        refresh_token = login_res.data['refresh']
+
+        refresh_client = APIClient()
+        refresh_res = refresh_client.post('/api/auth/token/refresh/', {'refresh': refresh_token}, format='json')
+        self.assertEqual(refresh_res.status_code, status.HTTP_200_OK)
+        self.assertIn('access', refresh_res.data)
 
     def test_student_registration(self):
         payload = {

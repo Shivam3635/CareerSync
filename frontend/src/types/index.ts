@@ -29,6 +29,11 @@ export interface StudentProfile {
   additional_certifications?: string;
 }
 
+export interface AuthTokens {
+  access: string;
+  refresh: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -36,6 +41,9 @@ export interface User {
   role: Role;
   student_profile?: StudentProfile;
   created_at?: string;
+  tokens?: AuthTokens;
+  access?: string;
+  refresh?: string;
 }
 
 export interface EligibilityRule {
@@ -84,6 +92,8 @@ export interface Job {
   vacancy_details?: any[];
   selection_process?: string;
   original_url: string;
+  verification_url?: string;
+  official_pdf_url?: string;
   source_name: string;
   source_type?: 'manual' | 'url' | 'pdf';
   uploaded_pdf?: string | null;

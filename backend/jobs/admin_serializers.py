@@ -41,6 +41,8 @@ class AdminJobWriteSerializer(serializers.ModelSerializer):
             'vacancy_details',
             'selection_process',
             'original_url',
+            'verification_url',
+            'official_pdf_url',
             'source_name',
             'source_type',
             'uploaded_pdf',
