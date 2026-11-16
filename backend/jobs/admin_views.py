@@ -47,7 +47,6 @@ class AdminDashboardStatsView(APIView):
         rejected_jobs = Job.objects.filter(status='rejected').count()
         active_jobs = Job.objects.filter(is_published=True, status='approved', application_deadline__gte=today).count()
         expired_jobs = Job.objects.filter(application_deadline__lt=today).count()
-        upcoming_jobs = Job.objects.filter(Q(is_upcoming=True) | Q(application_start_date__gt=today)).count()
         
         total_students = StudentProfile.objects.count()
         total_notifications_sent = Notification.objects.filter(is_sent=True).count()
@@ -66,7 +65,7 @@ class AdminDashboardStatsView(APIView):
             'rejected_jobs': rejected_jobs,
             'active_jobs': active_jobs,
             'expired_jobs': expired_jobs,
-            'upcoming_jobs': upcoming_jobs,
+            'upcoming_jobs': 0,
             'total_students': total_students,
             'total_notifications_sent': total_notifications_sent,
             'category_breakdown': category_breakdown,
@@ -180,10 +179,67 @@ class AdminExtractUrlView(APIView):
             except ValueError:
                 deadline_date = None
 
-        if deadline_date and deadline_date < timezone.now().date():
+        today = timezone.now().date()
+        if deadline_date and deadline_date < today:
             return Response({
                 'error': f"Cannot add recruitment notice: The application deadline expired on {deadline_date}. CareerSync only accepts active recruitment openings."
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parse application_start_date defensively
+        start_val = job_fields.get('application_start_date')
+        start_date = None
+        if isinstance(start_val, (date, datetime)):
+            start_date = start_val if isinstance(start_val, date) else start_val.date()
+        elif isinstance(start_val, str) and start_val.strip():
+            try:
+                start_date = datetime.strptime(start_val.strip(), '%Y-%m-%d').date()
+            except ValueError:
+                start_date = None
+
+        # Live Form Guard: Check if recruitment is 100% LIVE
+        detected_links = extracted_webpage.get('detected_links', {})
+        if 'sarkariresult.com' in url.lower():
+            from bs4 import BeautifulSoup
+            from .services.job_watcher import parse_sarkari_result_post_links
+            soup = BeautifulSoup(extracted_webpage.get('html_content', ''), 'html.parser')
+            official_links = parse_sarkari_result_post_links(soup)
+            official_apply = (
+                official_links.get('official_apply_url')
+                or detected_links.get('apply_url')
+                or detected_links.get('apply_online_url')
+                or ''
+            ).strip()
+            official_pdf = (
+                official_links.get('official_pdf_url')
+                or detected_links.get('notification_url')
+                or ''
+            ).strip()
+
+            if not official_apply or 'sarkariresult.com' in official_apply or not start_date or start_date > today or job_fields.get('is_upcoming'):
+                reason_detail = []
+                if not official_apply or 'sarkariresult.com' in official_apply:
+                    reason_detail.append("Official apply link is inactive or marked 'Link Activate Soon'")
+                if not start_date:
+                    reason_detail.append("Start date is unannounced / Available Soon")
+                elif start_date > today:
+                    reason_detail.append(f"Application starts on {start_date}")
+
+                return Response({
+                    'error': f"Cannot add recruitment: The application form is not live yet ({'; '.join(reason_detail)}). CareerSync strictly accepts only 100% live, active recruitment openings."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            job_fields['verification_url'] = url
+            job_fields['original_url'] = official_apply
+            if official_pdf:
+                job_fields['official_pdf_url'] = official_pdf
+        else:
+            if start_date and start_date > today:
+                return Response({
+                    'error': f"Cannot add recruitment: The application form starts on {start_date}. CareerSync strictly accepts only 100% live, active recruitment openings."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        job_fields['is_upcoming'] = False
+        metadata['is_upcoming'] = False
 
         # Duplicate check
         dup = check_for_duplicate_job(
@@ -194,20 +250,6 @@ class AdminExtractUrlView(APIView):
         )
         if dup:
             metadata['warnings'].append(f"Potential duplicate notice: An existing job '{dup.title}' (ID #{dup.id}) has matching details.")
-
-        # Save as pending_review draft
-        if 'sarkariresult.com' in url.lower():
-            from bs4 import BeautifulSoup
-            from .services.job_watcher import parse_sarkari_result_post_links
-            soup = BeautifulSoup(extracted_webpage.get('html_content', ''), 'html.parser')
-            official_links = parse_sarkari_result_post_links(soup)
-            job_fields['verification_url'] = url
-            if official_links.get('official_apply_url'):
-                job_fields['original_url'] = official_links['official_apply_url']
-            else:
-                job_fields['is_upcoming'] = True
-            if official_links.get('official_pdf_url'):
-                job_fields['official_pdf_url'] = official_links['official_pdf_url']
 
         job_fields['ai_extraction_metadata'] = metadata
         job_fields['ai_confidence_score'] = metadata['confidence_score']

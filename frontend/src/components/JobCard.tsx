@@ -76,15 +76,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
 
             <span className="inline-flex items-center gap-1">
               <Calendar size={14} className="text-[#111111]" />
-              <span>{job.is_upcoming ? 'Starts / Last Date:' : 'Last Date:'}</span>
+              <span>Last Date:</span>
               <strong className="text-[#111111]">{formattedDeadline}</strong>
             </span>
-
-            {job.is_upcoming && (
-              <span className="bg-[#111111] text-[#D9FF43] border border-[#111111] px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider">
-                ⏳ UPCOMING
-              </span>
-            )}
 
             {job.is_expired && (
               <span className="bg-[#FF6B4A] text-white px-1.5 py-0.2 text-[10px] font-bold uppercase">
@@ -123,28 +117,15 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
               </a>
             )}
 
-            {job.is_upcoming ? (
-              <a
-                href={job.official_pdf_url || job.original_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#F5F0E8] hover:bg-[#E8E2D8] text-[#111111] border-2 border-[#111111] brutal-shadow-sm active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
-                title={job.application_start_date ? `Application starts on ${formatDeadline(job.application_start_date)}` : "Form opening soon"}
-              >
-                <span>{job.application_start_date ? `Starts ${formatDeadline(job.application_start_date)}` : "Starting Soon"}</span>
-                <ExternalLink size={13} className="stroke-[2.5]" />
-              </a>
-            ) : (
-              <a
-                href={job.original_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#cbf425] active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
-              >
-                <span>Apply Online</span>
-                <ExternalLink size={13} className="stroke-[2.5]" />
-              </a>
-            )}
+            <a
+              href={job.original_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#cbf425] active:translate-x-[1px] active:translate-y-[1px] transition-all whitespace-nowrap"
+            >
+              <span>Apply Online</span>
+              <ExternalLink size={13} className="stroke-[2.5]" />
+            </a>
           </div>
         </div>
       </div>

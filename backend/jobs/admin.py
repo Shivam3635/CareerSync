@@ -49,7 +49,7 @@ class JobEligibilityRuleAdmin(admin.ModelAdmin):
 
 @admin.register(SkippedRecruitment)
 class SkippedRecruitmentAdmin(admin.ModelAdmin):
-    list_display = ('title', 'url', 'reason', 'application_deadline', 'skipped_at')
-    list_filter = ('reason', 'application_deadline', 'skipped_at')
+    list_display = ('title', 'url', 'reason', 'application_deadline', 'recheck_after', 'skipped_at')
+    list_filter = ('reason', 'application_deadline', 'recheck_after', 'skipped_at')
     search_fields = ('title', 'url', 'reason')
 

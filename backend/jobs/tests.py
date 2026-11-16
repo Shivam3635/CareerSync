@@ -676,8 +676,9 @@ class AIAssistedJobPostingTestCase(APITestCase):
 
     @patch('jobs.services.job_watcher.extract_webpage_content')
     @patch('jobs.services.job_watcher.extract_and_structure_job')
-    def test_job_watcher_detects_and_stages_upcoming_job(self, mock_structure, mock_webpage):
+    def test_job_watcher_auto_skips_upcoming_notice_and_schedules_recheck(self, mock_structure, mock_webpage):
         from jobs.services.job_watcher import ingest_single_recruitment
+        from jobs.models import SkippedRecruitment
         from django.utils import timezone
         from datetime import timedelta
 
@@ -716,41 +717,42 @@ class AIAssistedJobPostingTestCase(APITestCase):
         test_url = 'https://sarkariresult.com.cm/up-police-upcoming-2026/'
         res = ingest_single_recruitment(test_url, detected_title='UP Police Constable 2026')
 
-        self.assertTrue(res['success'])
-        job = Job.objects.get(id=res['job_id'])
-        self.assertTrue(job.is_upcoming)
-        self.assertTrue(job.is_currently_upcoming)
+        # Option 1: Must be auto-skipped! Zero Job drafts created!
+        self.assertFalse(res['success'])
+        self.assertTrue(res['skipped'])
+        self.assertIn('not live yet', res['reason'].lower())
+        self.assertFalse(Job.objects.filter(title='UP Police 60,000 Constable 2026').exists())
+
+        # Must be recorded in SkippedRecruitment with scheduled recheck_after
+        skipped = SkippedRecruitment.objects.get(url=test_url.rstrip('/'))
+        self.assertEqual(skipped.recheck_after, future_start)
+        self.assertIn('starts on', skipped.reason.lower())
 
     @patch('jobs.services.job_watcher.extract_webpage_content')
     @patch('jobs.services.job_watcher.extract_and_structure_job')
-    def test_job_watcher_transitions_upcoming_job_to_live_in_future(self, mock_structure, mock_webpage):
-        from jobs.services.job_watcher import ingest_single_recruitment
+    def test_job_watcher_smart_recheck_fetches_job_when_live_date_arrives(self, mock_structure, mock_webpage):
+        from jobs.services.job_watcher import ingest_single_recruitment, is_notice_already_ingested
+        from jobs.models import SkippedRecruitment
         from django.utils import timezone
         from datetime import timedelta
 
         test_url = 'https://sarkariresult.com.cm/rrb-alp-2026/'
+        clean_url = test_url.rstrip('/')
         today = timezone.now().date()
         future_deadline = today + timedelta(days=30)
 
-        # 1. First: Staged in database as UPCOMING (no live apply link yet)
-        upcoming_job = Job.objects.create(
+        # 1. Previously scheduled in SkippedRecruitment with recheck_after = today
+        SkippedRecruitment.objects.create(
+            url=clean_url,
             title="Railway RRB ALP Recruitment 2026",
-            organization="Railway Recruitment Board (RRB)",
-            advertisement_number="CEN 01/2026",
-            category="Railways",
-            verification_url=test_url,
-            original_url=test_url,  # points to summary page initially
-            application_start_date=today,
-            application_deadline=future_deadline,
-            age_cutoff_date=today,
-            is_upcoming=True,
-            status='approved',
-            is_published=True
+            reason="Form not live yet",
+            recheck_after=today
         )
-        JobEligibilityRule.objects.create(job=upcoming_job)
-        self.assertTrue(upcoming_job.is_currently_upcoming)
 
-        # 2. Later: Form goes LIVE! Sarkari Result updates page with official apply link
+        # 2. Smart recheck cache: Today >= recheck_after, so is_notice_already_ingested returns False
+        self.assertFalse(is_notice_already_ingested(test_url))
+
+        # 3. Webpage now has live official government apply link
         mock_webpage.return_value = {
             'html_content': '<table><tr><td>Apply Online</td><td><a href="https://rrbapply.gov.in/alp">Click Here</a></td></tr></table>',
             'cleaned_text': 'Apply Online Link Active: https://rrbapply.gov.in/alp',
@@ -780,18 +782,65 @@ class AIAssistedJobPostingTestCase(APITestCase):
             'metadata': {'confidence_score': 0.98, 'is_upcoming': False}
         }
 
-        # 3. Autonomous watcher runs again when form goes live
+        # 4. Watcher re-checks and ingests as 100% LIVE job!
         res = ingest_single_recruitment(test_url, detected_title='Railway RRB ALP 2026')
 
         self.assertTrue(res['success'])
-        self.assertTrue(res.get('updated_live'))
-        self.assertEqual(res['job_id'], upcoming_job.id)
+        self.assertFalse(res['skipped'])
+        live_job = Job.objects.get(id=res['job_id'])
+        self.assertEqual(live_job.status, 'pending_review')
+        self.assertEqual(live_job.original_url, 'https://rrbapply.gov.in/alp')
+        self.assertEqual(live_job.verification_url, test_url)
 
-        # 4. Verify existing job transitioned to LIVE in-place!
-        upcoming_job.refresh_from_db()
-        self.assertFalse(upcoming_job.is_upcoming)
-        self.assertFalse(upcoming_job.is_currently_upcoming)
-        self.assertEqual(upcoming_job.original_url, 'https://rrbapply.gov.in/alp')
+        # 5. Verify SkippedRecruitment entry was cleaned up now that the job is LIVE
+        self.assertFalse(SkippedRecruitment.objects.filter(url=clean_url).exists())
+
+    @patch('jobs.admin_views.extract_webpage_content')
+    @patch('jobs.admin_views.extract_and_structure_job')
+    def test_admin_extract_url_blocks_non_live_sarkari_result_link(self, mock_structure, mock_webpage):
+        from rest_framework import status
+        from django.utils import timezone
+        from datetime import timedelta
+
+        future_start = (timezone.now() + timedelta(days=15)).date()
+        future_deadline = (timezone.now() + timedelta(days=45)).date()
+
+        mock_webpage.return_value = {
+            'html_content': '<table><tr><td>Apply Online</td><td>Link Activate Soon</td></tr></table>',
+            'cleaned_text': 'Apply Online Link Activate Soon',
+            'page_title': 'Non-Live Recruitment Notice',
+            'detected_links': {},
+            'tables': [],
+            'key_values': {},
+            'source_url': 'https://sarkariresult.com.cm/non-live-recruitment/'
+        }
+
+        mock_structure.return_value = {
+            'job_fields': {
+                'title': 'Upcoming Future Post 2026',
+                'organization': 'Test Agency',
+                'advertisement_number': 'TEST/2026',
+                'application_start_date': str(future_start),
+                'application_deadline': str(future_deadline),
+                'min_age': 20,
+                'max_age': 28,
+                'category': 'Other Exams',
+                'is_upcoming': True,
+            },
+            'rule_fields': {
+                'min_qualification_level': 'Graduate',
+                'allowed_status': 'completed_only'
+            },
+            'metadata': {'confidence_score': 0.90, 'is_upcoming': True, 'conflicts': [], 'warnings': []}
+        }
+
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post('/api/admin/jobs/extract-url/', {
+            'url': 'https://sarkariresult.com.cm/non-live-recruitment/'
+        }, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('not live yet', res.data['error'].lower())
 
 
 

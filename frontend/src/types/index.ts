@@ -101,7 +101,6 @@ export interface Job {
   status: 'draft' | 'processing' | 'pending_review' | 'approved' | 'rejected' | 'failed';
   is_published: boolean;
   is_expired: boolean;
-  is_upcoming?: boolean;
   ai_extraction_metadata?: {
     conflicts?: string[];
     warnings?: string[];

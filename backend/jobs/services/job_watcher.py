@@ -13,7 +13,7 @@ import re
 import time
 import threading
 import urllib.parse
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional
 import requests
 from bs4 import BeautifulSoup
@@ -101,50 +101,48 @@ def is_recruitment_link(title: str, url: str) -> bool:
 def is_notice_already_ingested(url: str, title: str = "") -> bool:
     """
     Checks if a recruitment URL (verification or original) or title has already been ingested
-    into active jobs or previously evaluated and skipped (e.g. expired deadlines).
+    into active jobs or previously evaluated and skipped.
     Checks both stripped and trailing-slash normalized variants.
 
-    NOTE: If an existing job in the database is currently UPCOMING (i.e. application has not opened yet),
-    we allow re-checking it after a grace period so that when the form officially goes LIVE,
-    the watcher can extract the live application link and dates!
+    SMART RE-CHECK CACHE:
+    - If a notice was skipped because it's not live yet (upcoming / link activate soon),
+      it has a `recheck_after` date.
+    - If today >= recheck_after: Returns False to allow re-checking if the form is now LIVE!
+    - If today < recheck_after: Returns True (auto-skips without HTTP or Gemini calls, saving tokens).
+    - If recheck_after is None (e.g. expired): Returns True (permanently skipped).
     """
     clean_url = url.strip().rstrip('/')
     today = timezone.now().date()
     if clean_url:
         slash_url = clean_url + '/'
 
-        # If permanently skipped (e.g. expired), skip immediately
-        if SkippedRecruitment.objects.filter(
+        # Check SkippedRecruitment
+        skipped_entry = SkippedRecruitment.objects.filter(
             Q(url=clean_url) | Q(url=slash_url)
+        ).first()
+        if skipped_entry:
+            if skipped_entry.recheck_after and today >= skipped_entry.recheck_after:
+                # Re-check date reached! Allow re-check to see if form has opened
+                return False
+            # Still in skip period or permanently expired
+            return True
+
+        # Check existing live jobs in database
+        if Job.objects.filter(
+            Q(original_url=clean_url) | Q(original_url=slash_url) |
+            Q(verification_url=clean_url) | Q(verification_url=slash_url)
         ).exists():
             return True
 
-        matching_jobs = Job.objects.filter(
-            Q(original_url=clean_url) | Q(original_url=slash_url) |
-            Q(verification_url=clean_url) | Q(verification_url=slash_url)
-        )
-        if matching_jobs.exists():
-            # If all matching jobs are already live (not upcoming), it is completely ingested
-            if not any(j.is_currently_upcoming for j in matching_jobs):
-                return True
-            # If matching job is upcoming:
-            # If application_start_date is strictly in future, form cannot be live yet -> skip
-            if all(j.application_start_date and j.application_start_date > today for j in matching_jobs):
-                return True
-            # Start date has arrived or is unconfirmed -> Allow re-check so watcher catches when it goes LIVE!
-            return False
-
     if title and len(title.strip()) > 8:
         clean_title = title.strip()
-        if SkippedRecruitment.objects.filter(title__iexact=clean_title).exists():
+        skipped_title = SkippedRecruitment.objects.filter(title__iexact=clean_title).first()
+        if skipped_title:
+            if skipped_title.recheck_after and today >= skipped_title.recheck_after:
+                return False
             return True
-        matching_title_jobs = Job.objects.filter(title__iexact=clean_title)
-        if matching_title_jobs.exists():
-            if not any(j.is_currently_upcoming for j in matching_title_jobs):
-                return True
-            if all(j.application_start_date and j.application_start_date > today for j in matching_title_jobs):
-                return True
-            return False
+        if Job.objects.filter(title__iexact=clean_title).exists():
+            return True
 
     return False
 
@@ -245,8 +243,11 @@ def parse_sarkari_result_post_links(soup: BeautifulSoup) -> Dict[str, str]:
         if 'sarkariresult.com' in href or 'whatsapp.com' in href or 't.me' in href:
             continue
 
-        # Match Official Apply Link
+        # Match Official Apply Link (must be active, not a future activation placeholder)
         if not links['official_apply_url'] and any(k in row_text for k in ['apply online', 'online apply']):
+            link_anchor_text = a_tag.get_text(' ', strip=True).lower()
+            if any(term in link_anchor_text or term in row_text for term in ['activate soon', 'link activate', 'available soon', 'coming soon', 'not active']):
+                continue
             links['official_apply_url'] = href
 
         # Match Official Notification PDF
@@ -374,28 +375,75 @@ def ingest_single_recruitment(
             'deadline': str(deadline_date)
         }
 
-    # 2. UPCOMING DETECTION
-    # A recruitment notice is upcoming if:
-    # - official_apply link is missing / not yet active, OR
-    # - application_start_date is in the future (> today), OR
-    # - AI extractor marked is_upcoming
-    is_upcoming = bool(job_fields.get('is_upcoming', False))
-    if not official_apply:
-        is_upcoming = True
+    # 2. 100% LIVE RECRUITMENT FILTER
+    # CareerSync accepts strictly 100% live recruitment openings where candidates can apply immediately:
+    # - official_apply link must be present and external (not empty, not sarkariresult.com, not '#')
+    # - application_start_date must be present and <= today
+    # - application_deadline must be >= today (already verified above)
+    # - AI extractor signals must not indicate upcoming / non-live status
 
     start_val = job_fields.get('application_start_date')
-    if start_val:
+    start_date = None
+    if isinstance(start_val, (date, datetime)):
+        start_date = start_val if isinstance(start_val, date) else start_val.date()
+    elif isinstance(start_val, str) and start_val.strip():
         try:
-            start_d = datetime.strptime(str(start_val), '%Y-%m-%d').date() if isinstance(start_val, str) else start_val
-            if start_d > today:
-                is_upcoming = True
+            start_date = datetime.strptime(start_val.strip(), '%Y-%m-%d').date()
         except ValueError:
-            pass
+            start_date = None
 
-    job_fields['is_upcoming'] = is_upcoming
-    metadata['is_upcoming'] = is_upcoming
+    ai_upcoming = bool(job_fields.get('is_upcoming', False))
 
-    # Cross-check for existing job
+    is_live = bool(
+        official_apply
+        and not ai_upcoming
+        and start_date
+        and start_date <= today
+    )
+
+    if not is_live:
+        # Schedule smart re-check date
+        # If start_date is announced in the future, schedule exactly for start_date
+        # If start_date is unannounced ("Available Soon") or apply link is pending, re-check tomorrow
+        recheck_date = start_date if (start_date and start_date > today) else (today + timedelta(days=1))
+
+        reason_parts = []
+        if not official_apply:
+            reason_parts.append("Official apply link inactive/pending")
+        if not start_date:
+            reason_parts.append("Start date unannounced / Available Soon")
+        elif start_date > today:
+            reason_parts.append(f"Application starts on {start_date}")
+        elif ai_upcoming:
+            reason_parts.append("Marked upcoming in notice details")
+
+        reason_str = f"Form not live yet ({', '.join(reason_parts)})"
+
+        logger.info(
+            "Auto-Skip Filter: Recruitment notice '%s' skipped - %s. Re-check scheduled for %s.",
+            title or detected_title, reason_str, recheck_date
+        )
+
+        SkippedRecruitment.objects.update_or_create(
+            url=clean_url,
+            defaults={
+                'title': title or detected_title or 'Untitled Notice',
+                'reason': reason_str[:255],
+                'application_deadline': deadline_date,
+                'recheck_after': recheck_date,
+            }
+        )
+
+        return {
+            'success': False,
+            'skipped': True,
+            'reason': f"Recruitment is not live yet: {reason_str}. Scheduled for re-check on {recheck_date}.",
+            'url': url,
+            'title': title or detected_title,
+            'recheck_after': str(recheck_date)
+        }
+
+    # Cross-check for existing live job
     dup_query = Q()
     if advt_no and advt_no.strip():
         dup_query |= (Q(advertisement_number__iexact=advt_no.strip()) & Q(organization__iexact=org.strip()))
@@ -406,61 +454,15 @@ def ingest_single_recruitment(
 
     existing_job = Job.objects.filter(dup_query).first() if dup_query else None
     if existing_job:
-        # If existing job was marked UPCOMING, and the newly scraped notice is now LIVE:
-        if existing_job.is_currently_upcoming and not is_upcoming and official_apply:
-            logger.info(
-                "Watcher: Upcoming job #%s '%s' is now LIVE! Updating with live official apply URL: %s",
-                existing_job.id, existing_job.title, official_apply
-            )
-            existing_job.is_upcoming = False
-            existing_job.original_url = official_apply
-            if official_pdf:
-                existing_job.official_pdf_url = official_pdf
-            if job_fields.get('application_start_date'):
-                val = job_fields['application_start_date']
-                existing_job.application_start_date = datetime.strptime(val.strip(), '%Y-%m-%d').date() if isinstance(val, str) else val
-            if job_fields.get('application_deadline'):
-                val = job_fields['application_deadline']
-                existing_job.application_deadline = datetime.strptime(val.strip(), '%Y-%m-%d').date() if isinstance(val, str) else val
+        return {
+            'success': False,
+            'skipped': True,
+            'reason': f"Duplicate recruitment detected with matching Title/Org: '{title}' ({org})",
+            'url': url
+        }
 
-            existing_job.ai_extraction_metadata = {
-                **existing_job.ai_extraction_metadata,
-                **metadata,
-                'became_live_at': timezone.now().isoformat(),
-                'live_transition_engine': 'Gemini Autonomous Watcher'
-            }
-            existing_job.save()
-
-            if existing_job.is_published and existing_job.status == 'approved':
-                from jobs.services.notification_service import dispatch_job_notifications
-                dispatch_job_notifications(existing_job)
-
-            return {
-                'success': True,
-                'skipped': False,
-                'updated_live': True,
-                'job_id': existing_job.id,
-                'title': existing_job.title,
-                'message': f"Upcoming job '{existing_job.title}' transitioned to LIVE.",
-                'official_apply_url': official_apply
-            }
-        elif existing_job.is_currently_upcoming:
-            # Still upcoming, touch updated_at to throttle re-checking
-            existing_job.save(update_fields=['updated_at'])
-            return {
-                'success': False,
-                'skipped': True,
-                'reason': f"Upcoming recruitment notice '{existing_job.title}' is still awaiting live application link.",
-                'url': url
-            }
-        else:
-            # Already live duplicate
-            return {
-                'success': False,
-                'skipped': True,
-                'reason': f"Duplicate recruitment detected with matching Title/Org: '{title}' ({org})",
-                'url': url
-            }
+    job_fields['is_upcoming'] = False
+    metadata['is_upcoming'] = False
 
     # TWO-TIER LINK ARCHITECTURE:
     # 1. verification_url: Sarkari Result page for Admin Audit
@@ -499,6 +501,8 @@ def ingest_single_recruitment(
     serializer = AdminJobWriteSerializer(data=create_payload)
     if serializer.is_valid():
         draft_job = serializer.save()
+        # Clean up any previous SkippedRecruitment record for this URL now that it is successfully ingested as LIVE!
+        SkippedRecruitment.objects.filter(Q(url=clean_url) | Q(url=clean_url + '/')).delete()
         return {
             'success': True,
             'skipped': False,
@@ -537,22 +541,28 @@ def run_autonomous_discovery_and_ingestion(
     skipped_count = 0
     error_count = 0
 
-    # 1. Proactively re-check existing upcoming jobs to detect live form activation
-    upcoming_to_refresh = Job.objects.filter(is_upcoming=True).order_by('updated_at')[:2]
-    for up_job in upcoming_to_refresh:
+    today = timezone.now().date()
+    # 1. Proactively re-check candidate recruitments whose scheduled re-check date has arrived
+    due_to_recheck = SkippedRecruitment.objects.filter(
+        recheck_after__isnull=False,
+        recheck_after__lte=today
+    ).order_by('skipped_at')[:3]
+
+    for skipped in due_to_recheck:
         if len(ingested_jobs) >= limit:
             break
-        if up_job.verification_url:
-            logger.info("Autonomous Watcher: Checking upcoming job '%s' for live form activation...", up_job.title)
-            refresh_res = ingest_single_recruitment(
-                url=up_job.verification_url,
-                detected_title=up_job.title,
-                custom_gemini_api_key=custom_gemini_api_key
-            )
-            if refresh_res.get('updated_live'):
-                logger.info("Autonomous Watcher: Successfully activated upcoming job '%s' to LIVE!", up_job.title)
-                ingested_jobs.append(refresh_res)
-                time.sleep(2)
+        logger.info("Autonomous Watcher: Re-checking scheduled notice '%s' for live form activation...", skipped.title or skipped.url)
+        recheck_res = ingest_single_recruitment(
+            url=skipped.url,
+            detected_title=skipped.title,
+            custom_gemini_api_key=custom_gemini_api_key
+        )
+        if recheck_res.get('success'):
+            logger.info("Autonomous Watcher: Scheduled notice '%s' is now 100%% LIVE! Staged as draft #%s", skipped.title, recheck_res.get('job_id'))
+            ingested_jobs.append(recheck_res)
+            time.sleep(2)
+        elif recheck_res.get('skipped'):
+            skipped_count += 1
 
     candidate_links = discover_candidate_recruitment_links(limit=limit * 3)
 

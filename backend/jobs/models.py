@@ -166,13 +166,18 @@ class JobEligibilityRule(models.Model):
 
 class SkippedRecruitment(models.Model):
     """
-    Tracks recruitment URLs that have been evaluated and skipped (e.g. expired deadlines, duplicate notices).
+    Tracks recruitment URLs that have been evaluated and skipped (e.g. expired deadlines, duplicate notices, not-yet-live forms).
     Prevents redundant external web scraping and Gemini API token consumption on every cycle.
     """
     url = models.URLField(max_length=500, unique=True, help_text="Recruitment URL that was skipped")
     title = models.CharField(max_length=255, blank=True)
     reason = models.CharField(max_length=255, default='expired')
     application_deadline = models.DateField(null=True, blank=True)
+    recheck_after = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date after which watcher may re-check if form has opened"
+    )
     skipped_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
