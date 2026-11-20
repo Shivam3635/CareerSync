@@ -146,7 +146,7 @@ export const EligibilityModal: React.FC<EligibilityModalProps> = ({ job, onClose
         </div>
 
         {/* Footer Actions */}
-        <div className="mt-5 pt-4 border-t-2 border-[#111111] flex items-center justify-between">
+        <div className="mt-5 pt-4 border-t-2 border-[#111111] flex flex-wrap items-center justify-between gap-2">
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold uppercase bg-white border-2 border-[#111111] hover:bg-[#E8E2D8] brutal-shadow-sm"
@@ -154,15 +154,30 @@ export const EligibilityModal: React.FC<EligibilityModalProps> = ({ job, onClose
             Close
           </button>
 
-          <a
-            href={job.original_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:translate-x-[-1px] hover:translate-y-[-1px] transition-transform"
-          >
-            <span>Original Notification</span>
-            <ExternalLink size={14} />
-          </a>
+          <div className="flex items-center gap-2">
+            {job.verification_url && (
+              <a
+                href={job.verification_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase bg-[#F5F0E8] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:bg-[#E8E2D8] transition-colors"
+                title="View full vacancy details & eligibility on Sarkari Result"
+              >
+                <span>Detailed Notification</span>
+                <ExternalLink size={13} />
+              </a>
+            )}
+
+            <a
+              href={job.original_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase bg-[#D9FF43] text-[#111111] border-2 border-[#111111] brutal-shadow-sm hover:translate-x-[-1px] hover:translate-y-[-1px] transition-transform"
+            >
+              <span>Apply Online</span>
+              <ExternalLink size={14} />
+            </a>
+          </div>
         </div>
       </div>
     </div>

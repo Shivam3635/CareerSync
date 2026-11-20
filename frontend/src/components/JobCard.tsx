@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Job } from '../types';
 import { EligibilityBadge } from './EligibilityBadge';
-import { ExternalLink, HelpCircle, Calendar, GraduationCap } from 'lucide-react';
+import { ExternalLink, HelpCircle, Calendar, GraduationCap, FileText } from 'lucide-react';
 
 interface JobCardProps {
   job: Job;
@@ -86,6 +86,23 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onExplain }) => {
               </span>
             )}
           </div>
+
+          {/* Option B: View Detailed Notification Link */}
+          {job.verification_url && (
+            <div className="pt-1">
+              <a
+                href={job.verification_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#111111] hover:text-[#000000] bg-[#F5F0E8] hover:bg-[#E8E2D8] border border-[#111111] px-2.5 py-1 brutal-shadow-xs transition-all w-fit group"
+                title="View full vacancy details, eligibility criteria & syllabus on Sarkari Result"
+              >
+                <FileText size={13} className="text-[#111111] group-hover:scale-105 transition-transform" />
+                <span>View Detailed Notification</span>
+                <ExternalLink size={11} className="text-[#666666] stroke-[2.5]" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Right Section: Eligibility Status & Action Buttons */}
